@@ -1,0 +1,136 @@
+#include <string.h>
+
+#include "usbfw.h"
+
+void zero_bulk_context(USB_BULK_CONTEXT *uctx) {
+	memset(&uctx->dev_descr, 0, sizeof(struct libusb_device_descriptor));
+	uctx->conf_descr = NULL;
+	uctx->handle = 0;
+	uctx->interface = 0;
+	uctx->is_claimed = false;
+	uctx->endpoint_in = 0;
+	uctx->endpoint_out = 0;
+}
+
+int init_bulk_context(USB_BULK_CONTEXT *uctx, libusb_device *dev) {
+	enum libusb_error usb_error = 0;
+	unsigned __line__;
+
+	// clean structure
+	zero_bulk_context(uctx);
+
+	// get device descriptor
+	usb_error = libusb_get_device_descriptor(dev, &uctx->dev_descr);
+	if (usb_error) {
+		__line__ = __LINE__;
+		goto error;
+	}
+
+	// open device
+	usb_error = libusb_open(dev, &uctx->handle);
+	if (usb_error) {
+		__line__ = __LINE__;
+		goto error;
+	}
+
+	// get configuration descriptor
+	usb_error = libusb_get_config_descriptor(dev, 0, &uctx->conf_descr);
+	if (usb_error) {
+		__line__ = __LINE__;
+		goto error;
+	}
+
+	// enumerate all interfaces for SFF-8070(ATAPI) or SCSI mass storeage bulk ones
+	for (uint32_t i = 0; i < uctx->conf_descr->bNumInterfaces; i++) {
+		uctx->interface = i;
+		for (uint32_t j = 0; j < uctx->conf_descr->interface[i].num_altsetting; j++) {
+			uint8_t class = uctx->conf_descr->interface[i].altsetting[j].bInterfaceClass;
+			uint8_t subclass = uctx->conf_descr->interface[i].altsetting[j].bInterfaceSubClass;
+			uint8_t protocol = uctx->conf_descr->interface[i].altsetting[j].bInterfaceProtocol;
+
+			// class    == 8     -> mass storage
+			// subclass == 5/6   -> SF-8070/SCSI
+			// protocol == 80    -> BULK
+			if ((class != 8) || ((subclass != 5) && (subclass != 6)) || (protocol != 80)) {
+				continue;
+			}
+
+			dbg_printf("Found SFF-8070/SCSI mass storage device: %04X:%04X\n", uctx->dev_descr.idVendor, uctx->dev_descr.idProduct);
+
+			// locate IN & OUT endpoints
+			uint32_t endpoints_found = 0 ; // 0x1 - IN, 0x2 - OUT bitmask
+			for (uint32_t k = 0; k < uctx->conf_descr->interface[i].altsetting[j].bNumEndpoints; k++) {
+				const struct libusb_endpoint_descriptor *endpoint = &uctx->conf_descr->interface[i].altsetting[j].endpoint[k];
+
+				// only bulk ones
+				if ((endpoint->bmAttributes & LIBUSB_TRANSFER_TYPE_MASK) == LIBUSB_TRANSFER_TYPE_BULK) {
+					if (endpoint->bEndpointAddress & LIBUSB_ENDPOINT_IN) {
+						uctx->endpoint_in = endpoint->bEndpointAddress;
+						endpoints_found |= 0x01;
+					} else {
+						uctx->endpoint_out = endpoint->bEndpointAddress;
+						endpoints_found |= 0x02;
+					}
+				}
+
+				// we found both endpoints
+				if (endpoints_found == 0x03) {
+					dbg_printf("Endpoints : IN:0x%02hhx; OUT:0x%02hhx\n", uctx->endpoint_in, uctx->endpoint_out);
+					libusb_set_auto_detach_kernel_driver(uctx->handle, 1);
+					return 0;
+				}
+			}
+			dbg_printf("Warning: No suitable endpoints found, ignoring device.\n");
+		}
+	}
+//	dbg_printf("Warning: No SFF-8070/SCSI mass storage interfaces found.\n");
+	return -1;
+
+error:
+	dbg_printf("%s:%d USB error: %s\n", __func__, __line__, libusb_strerror(usb_error));
+	free_bulk_context(uctx);
+	return usb_error;
+}
+
+int claim_bulk_context(USB_BULK_CONTEXT *uctx) {
+	enum libusb_error usb_error = 0;
+
+	usb_error = libusb_claim_interface(uctx->handle, uctx->interface);
+	if (usb_error) {
+		dbg_printf("%s:%d USB error: %s\n", __func__, __LINE__, libusb_strerror(usb_error));
+		return usb_error;
+	}
+
+	uctx->is_claimed = true;
+	dbg_printf("Interface claimed.\n");
+
+	return 0;
+}
+
+void free_bulk_context(USB_BULK_CONTEXT *uctx) {
+	// first relese interface ...
+	if (uctx->is_claimed) {
+		libusb_release_interface(uctx->handle, uctx->interface);
+		uctx->interface = 0;
+		uctx->is_claimed = false;
+	}
+
+	// ... next zero endpoints, ...
+	uctx->endpoint_in = 0;
+	uctx->endpoint_out = 0;
+
+	// ... free config descriptor, ...
+	if (uctx->conf_descr) {
+		libusb_free_config_descriptor(uctx->conf_descr);
+		uctx->conf_descr = NULL;
+	}
+
+	// ... close device
+	if (uctx->handle) {
+		libusb_close(uctx->handle);
+		uctx->handle = 0;
+	}
+
+	// ... and finally zero device descriptor
+	memset(&uctx->dev_descr, 0, sizeof(struct libusb_device_descriptor));
+}
