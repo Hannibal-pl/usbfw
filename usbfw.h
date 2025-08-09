@@ -5,16 +5,23 @@
 #include <libusb.h>
 
 // SCSI commands
+#define		SCSI_CMD_ACTF_RAM	0x05
+#define		SCSI_CMD_ACTF_NAND_LOG	0x08
+#define		SCSI_CMD_ACTF_NAND_PHY	0x09
 #define		SCSI_CMD_INQUIRY	0x12
+#define		SCSI_CMD_ACTF_DETACH	0x16
+#define		SCSI_CMD_ACT_INIT	0xCB
 #define		SCSI_CMD_ACT_IDENTIFY	0xCC
 
 // common SCSI command packet offsets
 #define		SCSI_PACKET_CMD		0
 #define		SCSI_PACKET_LUN		1		// top 3 bits
-#define		SCSI_PACKET_LBA		2		// MSB first
+#define		SCSI_PACKET_LBA		2
+#define		SCSI_PACKET_LENGTH	7
 
 // other
 #define		USB_TIMEOUT		1000		// 1s
+#define		SECTOR_SIZE		512
 
 #ifdef DEBUG
 void dbg_printf(char* format, ...);
@@ -47,7 +54,15 @@ void free_bulk_context(USB_BULK_CONTEXT *uctx);
 void command_init(CBW *cbw);
 void command_init_inquiry(CBW *cbw);
 int command_perform_inquiry(CBW *cbw, USB_BULK_CONTEXT *uctx, SCSI_INQUIRY *inquiry);
-void command_init_act_identify(CBW *cbw);
+void command_init_act_identify(CBW *cbw, uint8_t lun);
 int command_perform_act_identify(CBW *cbw, USB_BULK_CONTEXT *uctx, ACTIONSUSBD *actid);
+void command_init_act_init(CBW *cbw);
+int command_perform_act_init(CBW *cbw, USB_BULK_CONTEXT *uctx, uint8_t *buf);
+void command_init_act_detach(CBW *cbw);
+int command_perform_act_detach(CBW *cbw, USB_BULK_CONTEXT *uctx);
+void command_init_act_readone(CBW *cbw, uint32_t lba, bool is_log);
+int command_perform_act_readone(CBW *cbw, USB_BULK_CONTEXT *uctx, uint8_t *buf);
+void command_init_act_read_ram(CBW *cbw, uint16_t sector, uint16_t length);
+int command_perform_act_read_ram(CBW *cbw, USB_BULK_CONTEXT *uctx, uint8_t *buf);
 
 #endif

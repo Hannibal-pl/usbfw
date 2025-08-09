@@ -81,7 +81,7 @@ typedef struct {
 typedef struct {
 	uint16_t		magic;			// 0xDEAD
 	uint32_t		systemtime;		// in 0.5s
-	uint32_t		RTCRate;		// 950
+	uint16_t		RTCRate;		// 950
 	uint8_t			displayContrast;	// 0~31
 	uint8_t			lightTime;		// default is 5s (0x0A)
 	uint8_t			standbyTime;
@@ -94,7 +94,7 @@ typedef struct {
 } FW_COMMON_VAL;
 
 typedef struct {
-	uint8_t 		magic[4];		// 0x55, 0xAA, 0xF0, 0x0F
+	uint32_t 		magic;			// 0x0FF0AA55
 	uint8_t			version[4];		// x.x.xx.xxxx
 	uint8_t			date[4];		// xxxx.xx.xx
 	uint16_t		productId;
@@ -121,9 +121,9 @@ typedef struct {
 	uint8_t			mtpProductVersion[16];
 	uint8_t			asciilen4;
 	uint8_t			mtpProductSerialNumber[16];
-	uint16_t		mtpVendorId[2];
-	uint16_t		mtpProductId[2];
-	uint8_t			reserved4[38];
+	uint16_t		mtpVendorId;		// in original header those two are 2 element arrays
+	uint16_t		mtpProductId;		// but this make this structure too large. And in MTP
+	uint8_t			reserved4[38];		// they are 16 bit wide
 	uint16_t		headerChecksum;		// first 510 bytes
 	FW_DIR_ENTRY		diritem[240];
 } FW_HEADER;
