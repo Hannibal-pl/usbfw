@@ -26,11 +26,43 @@ const struct option longopt[] = {
 	{"block-count", 1, NULL, 'c'},
 	{"logical", 0, NULL, 'o'},
 	{"physical", 0, NULL, 'p'},
+	{"detach", 0, NULL, 'D'},
+	{"alternate", 0, NULL, 'a'},
 	{NULL, 0, NULL, 0}};
 
 
 void usage(char *binfile) {
-	printf("Usage: %s COMMAND [OPTIONS]\n", binfile);
+	printf("Usage: %s COMMAND [OPTIONS]\n\n", binfile);
+	printf("You must select one of following COMMANDS:\n");
+	printf("  -e    --enumerate-devices    Enumerate all USB devices, and print all\n\
+                               supported ones.\n");
+	printf("  -i    --inquiry              Send INQUIRY SCSI command to the device and\n\
+                               print information about it sendig back.\n");
+	printf("  -C    --capacity             Send CAPACPITY SCSI command to the device and\n\
+                               print device LBA count and sector size.\n");
+	printf("  -I    --header-info          Fetches firmware header and prints all\n\
+                               informations from it.\n");
+	printf("  -r    --read                 Read data from selected logical device starting at\n\
+                               provided start sector and sectors count.\n");
+	printf("  -R    --read-fw              Read data from firmware area, either logical or\n\
+                               phisical, starting at provided start sector and\n\
+                               sectors count.\n");
+	printf("  -h    --help                 Displays this help\n\n");
+	printf("Additional you can use some of following OPTIONS.\n\n");
+	printf("  -f    --file FILENAME        File name to where data read form device is saved.\n\
+                               Default is \"%s\".\n", DEFAULT_OUT_FILENAME);
+	printf("  -d    --device DEV           USB device to use be program in format VVVV:PPPP where\n\
+                               VVVV is vendorID and PPPP is productID in hex. It is\n\
+                               required by almost all commands.\n");
+	printf("  -L    --lun LUN              Logical disk number on device used by command.\n\
+                               Default is 0.\n");
+	printf("  -l    --lba LBA              Starting sector of data transfer. Default is 0.\n");
+	printf("  -c    --block-count COUNT    Number of sectors to transfer. Default is 1.\n");
+	printf("  -o    --logical              In case of firmware area operations choose logical one.\n\
+                               DEFAULT\n");
+	printf("  -p    --phisical             In case of firmware area operations choose phisical one.\n");
+	printf("  -D    --detach               Detach (restart) device after command execution.\n");
+	printf("  -a    --alternate            User alternate firmware (if present) in operations.\n");
 }
 
 void parseparams(int argc, char *argv[]) {
@@ -99,7 +131,7 @@ void parseparams(int argc, char *argv[]) {
 				break;
 			case 'd':
 				if (optarg == NULL) {
-					printf("Error: You provide must device id.\n\n");
+					printf("Error: You must provide must device id.\n\n");
 					exit(-1);
 				}
 				if (!parse_devid(optarg)) {
@@ -109,7 +141,7 @@ void parseparams(int argc, char *argv[]) {
 				break;
 			case 'L':
 				if (optarg == NULL) {
-					printf("Error: You provide LUN number.\n\n");
+					printf("Error: You must provide LUN number.\n\n");
 					exit(-1);
 				}
 				uint32_t lun = strtoul(optarg, NULL, 0);
@@ -119,9 +151,41 @@ void parseparams(int argc, char *argv[]) {
 				}
 				app.lun = (uint8_t)(lun & 7);
 				break;
+			case 'l':
+				if (optarg == NULL) {
+					printf("Error: You must provide start LBA sector.\n\n");
+					exit(-1);
+				}
+				app.lba = strtoul(optarg, NULL, 0);
+				break;
+			case 'c':
+				if (optarg == NULL) {
+					printf("Error: You must provide block count.\n\n");
+					exit(-1);
+				}
+				app.bc = strtoul(optarg, NULL, 0);
+				break;
+			case 'o':
+				app.is_logical = true;
+				break;
+			case 'p':
+				app.is_logical = false;
+				break;
+			case 'D':
+				app.is_detach = true;
+				break;
+			case 'a':
+				app.is_alt_fw = true;
+				break;
 		}
 	}
 
+	if (app.cmd == APPCMD_NONE) {
+		printf("Error: You must select a command.\n\n");
+		goto help;
+	}
+
+	return;
 
 help:
 	usage(basename(argv[0]));

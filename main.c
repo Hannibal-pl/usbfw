@@ -7,14 +7,16 @@
 #include "usbfw.h"
 
 APP_CONTEXT app = {	.cmd		= APPCMD_NONE,
-			.filename	= DEFAULT_FILENAME,
+			.filename	= DEFAULT_OUT_FILENAME,
 			.file		= NULL,
 			.is_dev		= false,
 			.vid		= 0,
 			.pid		= 0,
 			.lun		= 0,
 			.lba		= 0,
-			.bc		= 1
+			.bc		= 1,
+			.is_logical	= true,
+			.is_detach	= false
 };
 
 USB_BULK_CONTEXT uctx;
@@ -118,6 +120,8 @@ int main (int argc, char *argv[]) {
 	libusb_device **list;
 	int err;
 	ssize_t cnt;
+
+	parseparams(argc, argv);
 
 	//unbuffer stdout
 	setvbuf(stdout, NULL, _IONBF, 0);

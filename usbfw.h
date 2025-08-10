@@ -24,7 +24,7 @@
 // other
 #define		USB_TIMEOUT		1000		// 1s
 #define		SECTOR_SIZE		512
-#define		DEFAULT_FILENAME	"dump.bin"
+#define		DEFAULT_OUT_FILENAME	"dump.bin"
 
 #ifdef DEBUG
 void dbg_printf(char* format, ...);
@@ -67,6 +67,9 @@ typedef struct {
 	uint8_t				lun;		// logical device number
 	uint32_t			lba;		// logical block number
 	uint32_t			bc;		// block count
+	bool				is_logical;	// logical or phisical fw sectors
+	bool				is_detach;	// detach device at exit
+	bool				is_alt_fw;	// use alternate (backup?) firmware
 } APP_CONTEXT;
 
 
