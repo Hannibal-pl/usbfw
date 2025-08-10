@@ -53,6 +53,11 @@ typedef struct {
 	char			rev[4];
 } SCSI_INQUIRY;
 
+typedef struct {
+	uint32_t		lastLBA;		// Big endian
+	uint32_t		blockSize;		// Big endian
+} SCSI_CAPACITY;
+
 
 // Actions specfic commands
 

@@ -6,6 +6,17 @@
 
 #include "usbfw.h"
 
+APP_CONTEXT app = {	.cmd		= APPCMD_NONE,
+			.filename	= DEFAULT_FILENAME,
+			.file		= NULL,
+			.is_dev		= false,
+			.vid		= 0,
+			.pid		= 0,
+			.lun		= 0,
+			.lba		= 0,
+			.bc		= 1
+};
+
 USB_BULK_CONTEXT uctx;
 CBW test_cbw;
 
