@@ -12,6 +12,7 @@
 #define		SCSI_CMD_INQUIRY	0x12
 #define		SCSI_CMD_ACTF_DETACH	0x16
 #define		SCSI_CMD_READ_CAPACITY	0x25
+#define		SCSI_CMD_READ10		0x28
 #define		SCSI_CMD_ACT_INIT	0xCB
 #define		SCSI_CMD_ACT_IDENTIFY	0xCC
 
@@ -30,6 +31,7 @@
 #define		USB_TIMEOUT		1000		// 1s
 #define		SECTOR_SIZE		512
 #define		DEFAULT_OUT_FILENAME	"dump.bin"
+#define		MAX_SEARCH_LBA		65535		// max sector for alternate firmware search
 
 #ifdef DEBUG
 void dbg_printf(char* format, ...);
@@ -73,6 +75,7 @@ typedef struct {
 	uint32_t			lba;		// logical block number
 	uint32_t			bc;		// block count
 	bool				is_logical;	// logical or phisical fw sectors
+	bool				is_showdir;	// show directory in APPCMD_HEADINFO
 	bool				is_detach;	// detach device at exit
 	bool				is_alt_fw;	// use alternate (backup?) firmware
 } APP_CONTEXT;
@@ -83,17 +86,21 @@ void parseparams(int argc, char *argv[]);
 
 //commands.c
 void command_init(CBW *cbw);
+
 void command_init_inquiry(CBW *cbw, uint8_t lun);
 int command_perform_inquiry(CBW *cbw, USB_BULK_CONTEXT *uctx, SCSI_INQUIRY *inquiry);
 void command_init_read_capacity(CBW *cbw, uint8_t lun);
 int command_perform_read_capacity(CBW *cbw, USB_BULK_CONTEXT *uctx, SCSI_CAPACITY *capacity);
+void command_init_read10one(CBW *cbw, uint8_t lun, uint32_t lba, uint32_t sector_size);
+int command_perform_read10one(CBW *cbw, USB_BULK_CONTEXT *uctx, uint8_t *buf);
+
 void command_init_act_identify(CBW *cbw, uint8_t lun);
 int command_perform_act_identify(CBW *cbw, USB_BULK_CONTEXT *uctx, ACTIONSUSBD *actid);
 void command_init_act_init(CBW *cbw);
 int command_perform_act_init(CBW *cbw, USB_BULK_CONTEXT *uctx, uint8_t *buf);
 void command_init_act_detach(CBW *cbw);
 int command_perform_act_detach(CBW *cbw, USB_BULK_CONTEXT *uctx);
-void command_init_act_readone(CBW *cbw, uint32_t lba, bool is_log);
+void command_init_act_readone(CBW *cbw, uint8_t lun, uint32_t lba, bool is_log);
 int command_perform_act_readone(CBW *cbw, USB_BULK_CONTEXT *uctx, uint8_t *buf);
 void command_init_act_read_ram(CBW *cbw, uint16_t sector, uint16_t length);
 int command_perform_act_read_ram(CBW *cbw, USB_BULK_CONTEXT *uctx, uint8_t *buf);
@@ -104,13 +111,20 @@ int init_bulk_context(USB_BULK_CONTEXT *uctx, libusb_device *dev);
 int claim_bulk_context(USB_BULK_CONTEXT *uctx);
 void free_bulk_context(USB_BULK_CONTEXT *uctx);
 bool open_device(USB_BULK_CONTEXT *uctx, uint16_t vid, uint16_t pid);
+uint32_t search_alternate_fw(USB_BULK_CONTEXT *uctx, uint8_t lun, uint32_t max_lba);
 
 //main.c
 extern APP_CONTEXT app;
 
 //tool.c
 bool parse_devid(char *devstring);
-char *decode_pdt(uint8_t);
-char* humanize_size(uint64_t size);
+char * decode_pdt(uint8_t);
+char * humanize_size(uint64_t size);
+char * covert_usb_string_descriptor(uint8_t *src, uint32_t length);
+char * convert_mtp_serial(uint8_t serial[16]);
+char * decode_langid(uint8_t langid);
+char * decode_battery(uint8_t battery);
+char * make_filename(char filename[11]);
+void display_spinner(void);
 
 #endif

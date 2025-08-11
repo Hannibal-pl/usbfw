@@ -18,11 +18,13 @@ APP_CONTEXT app = {	.cmd		= APPCMD_NONE,
 			.lba		= 0,
 			.bc		= 1,
 			.is_logical	= true,
-			.is_detach	= false
+			.is_showdir	= false,
+			.is_detach	= false,
+			.is_alt_fw	= false
 };
 
 USB_BULK_CONTEXT uctx;
-CBW test_cbw;
+CBW cbw;
 
 #define sectors  (1024 * 64)
 uint8_t fw[SECTOR_SIZE * sectors];
@@ -59,8 +61,8 @@ bool enumerate_devices(void) {
 		printf("Testing USB mass storage device %04hX:%04hX - ", uctx.dev_descr.idVendor, uctx.dev_descr.idProduct);
 
 		ACTIONSUSBD actid;
-		command_init_act_identify(&test_cbw, 1);
-		if (command_perform_act_identify(&test_cbw, &uctx, &actid)) {
+		command_init_act_identify(&cbw, 1);
+		if (command_perform_act_identify(&cbw, &uctx, &actid)) {
 			printf(COLOR_RED"FAIL"COLOR_DEFAULT"\n");
 		} else if (strncmp(actid.actionsusbd, "ACTIONSUSBD", 11) != 0) {
 			printf(COLOR_RED"FAIL"COLOR_DEFAULT"\n");
@@ -101,8 +103,8 @@ bool scsi_inquiry(void) {
 	printf("\nSending SCSI INQUIRY command to the device %04X:%04X LUN:%i\n\n", app.vid, app.pid, app.lun);
 
 	SCSI_INQUIRY inquiry;
-	command_init_inquiry(&test_cbw, app.lun);
-	if (command_perform_inquiry(&test_cbw, &uctx, &inquiry)) {
+	command_init_inquiry(&cbw, app.lun);
+	if (command_perform_inquiry(&cbw, &uctx, &inquiry)) {
 		printf("Error: Inquiry command fail.\n");
 		return false;
 	}
@@ -133,8 +135,8 @@ bool scsi_read_capacity(void) {
 	printf("\nSending SCSI READ CAPACITY command to the device %04X:%04X LUN:%i\n\n", app.vid, app.pid, app.lun);
 
 	SCSI_CAPACITY capacity;
-	command_init_read_capacity(&test_cbw, app.lun);
-	if (command_perform_read_capacity(&test_cbw, &uctx, &capacity)) {
+	command_init_read_capacity(&cbw, app.lun);
+	if (command_perform_read_capacity(&cbw, &uctx, &capacity)) {
 		printf("Error: Read capacity command fail.\n");
 		return false;
 	}
@@ -147,6 +149,7 @@ bool scsi_read_capacity(void) {
 bool action_headinfo(void) {
 	enum libusb_error usb_error;
 	bool retval = false;
+	uint32_t first_sector = 0;
 
 	if (!open_device(&uctx, app.vid, app.pid)) {
 		printf("Error: Cannot opend device %04hX:%04hX.\n", app.vid, app.pid);
@@ -162,8 +165,8 @@ bool action_headinfo(void) {
 
 	// check for Actions device
 	ACTIONSUSBD actid;
-	command_init_act_identify(&test_cbw, 1);
-	if (command_perform_act_identify(&test_cbw, &uctx, &actid)) {
+	command_init_act_identify(&cbw, 1);
+	if (command_perform_act_identify(&cbw, &uctx, &actid)) {
 		printf("Error: Cannot identify Actions device.\n");
 		retval = false;
 		goto exit;
@@ -175,19 +178,28 @@ bool action_headinfo(void) {
 
 	// init firmware mode
 	uint8_t resp;
-	command_init_act_init(&test_cbw);
-	if ((command_perform_act_init(&test_cbw, &uctx, &resp)) || (resp != 0xFF)) {
+	command_init_act_init(&cbw);
+	if ((command_perform_act_init(&cbw, &uctx, &resp)) || (resp != 0xFF)) {
 		printf("Error: Unable to init firmware mode\n");
 		retval = false;
 		goto exit;
 	}
 
-	printf("\nReading ACTIONS firmware header from device %04X:%04X LUN:%i\n\n", app.vid, app.pid, app.lun);
+	printf("\nReading ACTIONS firmware header (%s) from device %04X:%04X LUN:%i\n\n", app.is_alt_fw ? "alternate" : "main", app.vid, app.pid, app.lun);
+
+	if (app.is_alt_fw) {
+		first_sector = search_alternate_fw(&uctx, app.lun, MAX_SEARCH_LBA);
+		// exit if error or not found
+		if ((first_sector == 0xFFFFFFFF) || (first_sector == 0xFFFFFFFF)) {
+			retval = false;
+			goto exit;
+		}
+	}
 
 	FW_HEADER fw_header;
 	for (uint32_t i = 0; i < 16; i++) {
-		command_init_act_readone(&test_cbw, i, true);
-		if (command_perform_act_readone(&test_cbw, &uctx, ((uint8_t *)&fw_header) + (i * SECTOR_SIZE))) {
+		command_init_act_readone(&cbw, app.lun, first_sector + i, true);
+		if (command_perform_act_readone(&cbw, &uctx, ((uint8_t *)&fw_header) + (i * SECTOR_SIZE))) {
 			printf("Error: Reading header failed at sector %i\n", i);
 			retval = false;
 			goto exit;
@@ -199,9 +211,6 @@ bool action_headinfo(void) {
 		retval = false;
 		goto exit;
 	}
-
-	char buf[128];
-	wcstombs(buf, (wchar_t *)fw_header.bString, sizeof(buf));
 
 	printf("Recieved information:\n\n");
 	printf("               Version : %01hhX.%01hhX.%02hhX.%0hhX%0hhX\n", fw_header.version[0] >> 4, fw_header.version[0] & 0xF, fw_header.version[1], fw_header.version[2], fw_header.version[3]);
@@ -215,16 +224,40 @@ bool action_headinfo(void) {
 	printf("         USB Attribute : %.8s\n", fw_header.usbAttri);
 	printf("    USB Identification : %.16s\n", fw_header.usbIdentification);
 	printf("   USB Product Version : %.4s\n", fw_header.usbProductVer);
-	printf("              USB Name : %.46s\n", buf);
+	printf("              USB Name : %.46s\n", covert_usb_string_descriptor(fw_header.bString, 46));
 	printf(" MTP Manufacturer Info : %.32s\n", fw_header.mtpManufacturerInfo);
 	printf("      MTP Product Info : %.32s\n", fw_header.mtpProductInfo);
 	printf("   MTP Product Version : %.32s\n", fw_header.mtpProductVersion);
-	printf("        MTP Product SN : %.32s\n", fw_header.mtpProductSerialNumber);
+	printf("        MTP Product SN : %.32s\n", convert_mtp_serial(fw_header.mtpProductSerialNumber));
 	printf("         MTP Vendor ID : 0x%04hX\n", fw_header.mtpVendorId);
 	printf("        MTP Product ID : 0x%04hX\n", fw_header.mtpProductId);
 	printf("       Header Checksum : 0x%04hX\n", fw_header.headerChecksum);
 	printf("\nCommon Values:\n\n");
 	printf(" System Time (in 0.5s) : 0x%08X\n", fw_header.defaultInf.systemtime);
+	printf("              RTC Rate : 0x%04hX\n", fw_header.defaultInf.RTCRate);
+	printf("      Display Contrast : 0x%hu\n", fw_header.defaultInf.displayContrast);
+	printf("            Light Time : 0x%hu\n", fw_header.defaultInf.lightTime);
+	printf("          Standby Time : 0x%hu\n", fw_header.defaultInf.standbyTime);
+	printf("            Sleep Time : 0x%hu\n", fw_header.defaultInf.sleepTime);
+	printf("           Language ID : %i - %s\n", fw_header.defaultInf.langid, decode_langid(fw_header.defaultInf.langid));
+	printf("           Replay Mode : 0x%hu\n", fw_header.defaultInf.replayMode);
+	printf("           Online Mode : 0x%hu\n", fw_header.defaultInf.onlineMode);
+	printf("          Battery Type : %i - %s\n", fw_header.defaultInf.batteryType, decode_battery(fw_header.defaultInf.batteryType));
+	printf("           FM Build in : %i - %s\n", fw_header.defaultInf.fmBuildIn, fw_header.defaultInf.fmBuildIn ? "YES" : "NO");
+
+	if (app.is_showdir) {
+		printf("\nFiles:\n\n");
+
+		printf("    Filename:       Attributes:  Version:  Offset in sectors:  Length in bytes:  Checksum:\n\n");
+		for (uint32_t i = 0; i < 240; i++) {
+			FW_DIR_ENTRY *entry = &fw_header.diritem[i];
+			//skip empty entries
+			if (entry->filename[0] != 0) {
+				printf("    %s    0x%02hhX         0x%04hX    0x%08X          0x%08X        0x%08X\n", make_filename(entry->filename), entry->attr, entry->version, entry->offset, entry->length, entry->checksum);
+			}
+		}
+	}
+
 	printf("\n");
 
 	retval = true;
@@ -232,8 +265,8 @@ bool action_headinfo(void) {
 exit:
 	if (app.is_detach) {
 		printf("Detaching device ");
-		command_init_act_detach(&test_cbw);
-		if (command_perform_act_detach(&test_cbw, &uctx)) {
+		command_init_act_detach(&cbw);
+		if (command_perform_act_detach(&cbw, &uctx)) {
 			printf("failed.\n");
 		} else {
 			printf("succesful.\n");
@@ -246,8 +279,8 @@ void action_dev(void) {
 	int err;
 	uint8_t resp;
 
-	command_init_act_init(&test_cbw);
-	err = command_perform_act_init(&test_cbw, &uctx, &resp);
+	command_init_act_init(&cbw);
+	err = command_perform_act_init(&cbw, &uctx, &resp);
 	if (err) {
 		return;
 	}
@@ -255,8 +288,8 @@ void action_dev(void) {
 
 
 	ACTIONSUSBD actid;
-	command_init_act_identify(&test_cbw, 1);
-	err = command_perform_act_identify(&test_cbw, &uctx, &actid);
+	command_init_act_identify(&cbw, 1);
+	err = command_perform_act_identify(&cbw, &uctx, &actid);
 	if (err) {
 		goto error;
 	}
@@ -272,8 +305,8 @@ void action_dev(void) {
 		if ((i & 0x7F) == 0) {
 			printf(".");
 		}
-		command_init_act_readone(&test_cbw, i, true);
-		err = command_perform_act_readone(&test_cbw, &uctx, ((uint8_t *)&fw) + (i * SECTOR_SIZE));
+		command_init_act_readone(&cbw, app.lun, i, true);
+		err = command_perform_act_readone(&cbw, &uctx, ((uint8_t *)&fw) + (i * SECTOR_SIZE));
 		if (err) {
 			goto error;
 		}
@@ -290,8 +323,8 @@ void action_dev(void) {
 		if ((i & 0x7F) == 0) {
 			printf(".");
 		}
-		command_init_act_readone(&test_cbw, i, false);
-		err = command_perform_act_readone(&test_cbw, &uctx, ((uint8_t *)&fw) + (i * SECTOR_SIZE));
+		command_init_act_readone(&cbw, app.lun, i, false);
+		err = command_perform_act_readone(&cbw, &uctx, ((uint8_t *)&fw) + (i * SECTOR_SIZE));
 		if (err) {
 			goto error;
 		}
@@ -311,8 +344,8 @@ void action_dev(void) {
 		// If you get garbage dump, your device doesn't support RAM read. You can only read
 		// sysinfo. Set then size to 192 bytes - longer reads are ignored. Sector number is
 		// always ignored i this case.
-		command_init_act_read_ram(&test_cbw, i, 512 /*192*/);
-		err = command_perform_act_read_ram(&test_cbw, &uctx, ((uint8_t *)&fw) + (i * SECTOR_SIZE));
+		command_init_act_read_ram(&cbw, i, 512 /*192*/);
+		err = command_perform_act_read_ram(&cbw, &uctx, ((uint8_t *)&fw) + (i * SECTOR_SIZE));
 		if (err) {
 			goto error;
 		}
@@ -324,8 +357,8 @@ void action_dev(void) {
 
 
 error:
-	command_init_act_detach(&test_cbw);
-	err = command_perform_act_detach(&test_cbw, &uctx);
+	command_init_act_detach(&cbw);
+	err = command_perform_act_detach(&cbw, &uctx);
 	if (err) {
 		return;
 	}
@@ -394,8 +427,8 @@ int main (int argc, char *argv[]) {
 
 
 		SCSI_INQUIRY test_inquiry;
-		command_init_inquiry(&test_cbw);
-		err = command_perform_inquiry(&test_cbw, &uctx, &test_inquiry);
+		command_init_inquiry(&cbw);
+		err = command_perform_inquiry(&cbw, &uctx, &test_inquiry);
 		if (!err) {
 			char tbuf[100];
 
@@ -407,8 +440,8 @@ int main (int argc, char *argv[]) {
 
 
 		ACTIONSUSBD actid;
-		command_init_act_identify(&test_cbw, 1);
-		err = command_perform_act_identify(&test_cbw, &uctx, &actid);
+		command_init_act_identify(&cbw, 1);
+		err = command_perform_act_identify(&cbw, &uctx, &actid);
 		if (!err) {
 			printf("Gathered ID: %11s 0x%02hhX 0x%02hhX\n", actid.actionsusbd, actid.adfu, actid.unknown);
 			if (strncmp(actid.actionsusbd, "ACTIONSUSBD", 11) == 0) {

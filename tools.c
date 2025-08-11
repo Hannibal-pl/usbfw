@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <iconv.h>
 
 #include "usbfw.h"
 
@@ -42,7 +43,7 @@ bool parse_devid(char *devstring) {
 	return true;
 }
 
-char *decode_pdt(uint8_t pdt) {
+char * decode_pdt(uint8_t pdt) {
 	switch (pdt) {
 		case 0x00:
 			return "Direct access device";
@@ -61,7 +62,7 @@ char *decode_pdt(uint8_t pdt) {
 	}
 }
 
-char* humanize_size(uint64_t size) {
+char * humanize_size(uint64_t size) {
 	static char size_buffer[32];
 	double dsize = (double)size;
 
@@ -87,4 +88,110 @@ char* humanize_size(uint64_t size) {
 
 	snprintf(size_buffer, sizeof(size_buffer) - 1, "sizeof(size_buffer) - 1,%.fd TiB", dsize / (1024.0 * 1024.0 * 1024.0 * 1024.0));
 	return size_buffer;
+}
+
+
+char * covert_usb_string_descriptor(uint8_t *src, uint32_t length) {
+	static char buf[256];
+	char *bufoutptr = buf;
+	char *bufinptr = (char *)src;
+	size_t bufinlen = length;
+	size_t bufoutlen = sizeof(buf);
+
+	iconv_t utf16_to_utf8 = iconv_open("UTF-8", "UTF-16LE");
+	iconv(utf16_to_utf8, &bufinptr, &bufinlen, &bufoutptr, &bufoutlen);
+	iconv_close(utf16_to_utf8);
+
+	return buf;
+}
+
+char * convert_mtp_serial(uint8_t serial[16]) {
+	static char buf[33];
+	char digit;
+
+	for (uint32_t i = 0; i < 16; i++) {
+		digit = ((serial[i] >> 4) & 0xF);
+		if (digit <= 9) {
+			digit += '0';
+		} else {
+			digit += 'A' - 10;
+		}
+
+		buf[2 * i + 0] = digit;
+
+		digit = (serial[i] & 0xF);
+		if (digit <= 9) {
+			digit += '0';
+		} else {
+			digit += 'A' - 10;
+		}
+
+		buf[2 * i + 1] = digit;
+	}
+	buf[32] = '0';
+
+	return buf;
+}
+
+char * decode_langid(uint8_t langid) {
+	switch (langid) {
+		case 0:
+			return "Chinese Simplified";
+		case 1:
+			return "English";
+		case 2:
+			return "Chinese Traditional";
+		default:
+			return "Unknown Language";
+	}
+}
+
+char * decode_battery(uint8_t battery) {
+	switch (battery) {
+		case 0:
+			return "Alkaline";
+		case 1:
+			return "Ni/H";
+		case 2:
+			return "Lithium";
+		default:
+			return "Unknown Battery";
+	}
+}
+
+char * make_filename(char filename[11]) {
+	static char outname[13];
+	uint32_t i = 0;
+
+	memset(outname, ' ', sizeof(outname));
+	for (uint32_t j = 0; j < 8; j++) {
+		if (filename[j] == ' ') {
+			break;
+		}
+		outname[i++] = filename[j];
+	}
+
+	outname[i++] = '.';
+
+	for (uint32_t j = 8; j < 11; j++) {
+		if (filename[j] == ' ') {
+			break;
+		}
+		outname[i++] = filename[j];
+	}
+
+	outname[12] = 0;
+
+	return outname;
+}
+
+void display_spinner(void) {
+	char spinner[4] = "|/-\\";
+	static int i = 0;
+
+	printf("\b%c", spinner[i++]);
+	fflush(stdout);
+	if (i > 3) {
+		i = 0;
+	}
 }

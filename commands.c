@@ -146,6 +146,28 @@ int command_perform_read_capacity(CBW *cbw, USB_BULK_CONTEXT *uctx, SCSI_CAPACIT
 	return 0;
 }
 
+// SCSI READ10 (one sector) command
+
+void command_init_read10one(CBW *cbw, uint8_t lun, uint32_t lba, uint32_t sector_size) {
+	command_init(cbw);
+	cbw->bCBWLUN = 0;
+	cbw->dCBWDataTransferLength = sector_size;
+	cbw->CBWCB[SCSI_PACKET_CMD] = SCSI_CMD_READ10;
+	cbw->CBWCB[SCSI_PACKET_LUN] = lun;
+	// big endian
+	cbw->CBWCB[SCSI_PACKET_LBA + 0] = (lba >> 24) & 0xFF;
+	cbw->CBWCB[SCSI_PACKET_LBA + 1] = (lba >> 16) & 0xFF;
+	cbw->CBWCB[SCSI_PACKET_LBA + 2] = (lba >>  8) & 0xFF;
+	cbw->CBWCB[SCSI_PACKET_LBA + 3] = (lba >>  0) & 0xFF;
+	cbw->CBWCB[SCSI_PACKET_LENGTH + 0] = 0;
+	cbw->CBWCB[SCSI_PACKET_LENGTH + 1] = 1;
+}
+
+int command_perform_read10one(CBW *cbw, USB_BULK_CONTEXT *uctx, uint8_t *buf) {
+	return command_perform_generic_read(cbw, uctx, (unsigned char *)buf);
+}
+
+
 
 
 // ACTIONS INDENTIFY command
@@ -189,9 +211,9 @@ int command_perform_act_detach(CBW *cbw, USB_BULK_CONTEXT *uctx) {
 
 // ACTIONS READ (one sector) command
 
-void command_init_act_readone(CBW *cbw, uint32_t lba, bool is_log) {
+void command_init_act_readone(CBW *cbw, uint8_t lun, uint32_t lba, bool is_log) {
 	command_init(cbw);
-	cbw->bCBWLUN = 0;
+	cbw->bCBWLUN = lun;
 	cbw->dCBWDataTransferLength = SECTOR_SIZE;
 	cbw->CBWCB[SCSI_PACKET_CMD] = is_log ? SCSI_CMD_ACTF_NAND_LOG : SCSI_CMD_ACTF_NAND_PHY;
 	// at 'lun' offset place read mark

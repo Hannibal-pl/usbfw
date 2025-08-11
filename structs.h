@@ -69,7 +69,7 @@ typedef struct {
 
 
 
-// Fimware structs
+// Firmware structs
 
 typedef struct {
 	char			filename[11];		// 8.3

@@ -165,3 +165,30 @@ bool open_device(USB_BULK_CONTEXT *uctx, uint16_t vid, uint16_t pid) {
 	libusb_free_device_list(list, 1);
 	return false;
 }
+
+
+uint32_t search_alternate_fw(USB_BULK_CONTEXT *uctx, uint8_t lun, uint32_t max_lba) {
+	FW_HEADER fw_header;
+	CBW cbw;
+
+	printf("Searching for alternate header...  ");
+	for (uint32_t i = 8; i < max_lba; i++) {
+		command_init_act_readone(&cbw, lun, i, true);
+		if (command_perform_act_readone(&cbw, uctx, (uint8_t *)&fw_header)) {
+			printf("\nError: Searching alternate header failed at sector %i\n", i);
+			return 0xFFFFFFFF;
+		}
+		// header found
+		if (fw_header.magic == 0x0FF0AA55) {
+			printf("\bfound at sector 0x%08X\n\n", i);
+			return i;
+		}
+
+		if ((i & 0xF) == 0) {
+			display_spinner();
+		}
+	}
+
+	printf("\bnot found.\n\n");
+	return 0;
+}

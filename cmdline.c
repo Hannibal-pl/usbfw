@@ -26,6 +26,7 @@ const struct option longopt[] = {
 	{"block-count", 1, NULL, 'c'},
 	{"logical", 0, NULL, 'o'},
 	{"physical", 0, NULL, 'p'},
+	{"show-dir", 0, NULL, 's'},
 	{"detach", 0, NULL, 'D'},
 	{"alternate", 0, NULL, 'a'},
 	{NULL, 0, NULL, 0}};
@@ -61,6 +62,7 @@ void usage(char *binfile) {
 	printf("  -o    --logical              In case of firmware area operations choose logical one.\n\
                                DEFAULT\n");
 	printf("  -p    --phisical             In case of firmware area operations choose phisical one.\n");
+	printf("  -s    --show-dir             Include contents of directory when display header info.\n");
 	printf("  -D    --detach               Detach (restart) device at the end of execution frimware\n\
                                specific commands.\n");
 	printf("  -a    --alternate            User alternate firmware (if present) in operations.\n");
@@ -70,7 +72,7 @@ void parseparams(int argc, char *argv[]) {
 	int opt;
 
 	while (true) {
-		opt = getopt_long(argc, argv, "f:ed:l:L:c:iCIrRopDh?", longopt, NULL);
+		opt = getopt_long(argc, argv, "f:ed:l:L:c:iCIrRopsDah?", longopt, NULL);
 		if (opt == -1) {
 			break;
 		}
@@ -171,6 +173,9 @@ void parseparams(int argc, char *argv[]) {
 				break;
 			case 'p':
 				app.is_logical = false;
+				break;
+			case 's':
+				app.is_showdir = true;
 				break;
 			case 'D':
 				app.is_detach = true;
