@@ -2,7 +2,6 @@ This project will be firmware downloader for some old mp3 players and FM
 transmitters based on Actions Semiconductor family of chips like
 AK-2XXX / ATJ-2XXX / ATS-2XXX.
 
-For now, for device it found, dump first 32 MB of firmware logical sectors to
-fw_log.bin, first 32MB of phisical sectors to fw_phy.bin and RAM to fw_ram.bin.
-RAM dump may be a garbage since you device may not have full RAM access
-functionality.
+For now, application has basic set of commands, allowing geting information
+about device and firmware, and manual firmware read - you must choose on your
+own starting sector and length of dump (and other optional control parameters).

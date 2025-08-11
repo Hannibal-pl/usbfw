@@ -275,7 +275,92 @@ exit:
 	return retval;
 }
 
-void action_dev(void) {
+bool action_readfw(void) {
+	enum libusb_error usb_error;
+	bool retval = false;
+
+	if (!open_device(&uctx, app.vid, app.pid)) {
+		printf("Error: Cannot opend device %04hX:%04hX.\n", app.vid, app.pid);
+		return false;
+	}
+
+	usb_error = claim_bulk_context(&uctx);
+	if (usb_error) {
+		printf("Error: Cannot claim USB endpoint: %s\n", libusb_strerror(usb_error));
+		free_bulk_context(&uctx);
+		return false;
+	}
+
+	// check for Actions device
+	ACTIONSUSBD actid;
+	command_init_act_identify(&cbw, 1);
+	if (command_perform_act_identify(&cbw, &uctx, &actid)) {
+		printf("Error: Cannot identify Actions device.\n");
+		retval = false;
+		goto exit;
+	} else if (strncmp(actid.actionsusbd, "ACTIONSUSBD", 11) != 0) {
+		printf("Error: Actions indentifier not match\n");
+		retval = false;
+		goto exit;
+	}
+
+	// init firmware mode
+	uint8_t resp;
+	command_init_act_init(&cbw);
+	if ((command_perform_act_init(&cbw, &uctx, &resp)) || (resp != 0xFF)) {
+		printf("Error: Unable to init firmware mode\n");
+		retval = false;
+		goto exit;
+	}
+
+	printf("\nReading ACTIONS firmware %s area from device %04X:%04X LUN:%i to file \"%s\",\n", app.is_logical ? "logical" : "physical", app.vid, app.pid, app.lun, app.filename);
+	printf("starting at sector 0x%08X and ending at sector 0x%08X (0x%08X sectors total).\n\n", app.lba , app.lba + app.bc - 1, app.bc);
+
+	app.file = fopen(app.filename, "w");
+	if (!app.file) {
+		printf("Error: Cannot open output file \"%s\".", app.filename);
+		retval = false;
+		goto exit;
+	}
+
+	printf("Reading firmware ...  ");
+	uint8_t dumpbuffer[SECTOR_SIZE];
+	for (uint32_t i = app.lba; i < app.lba + app.bc; i++) {
+		command_init_act_readone(&cbw, app.lun, i, app.is_logical);
+		if (command_perform_act_readone(&cbw, &uctx, (uint8_t *)&dumpbuffer)) {
+			printf("Error: Reading firmware failed at sector %i\n", i);
+			retval = false;
+			goto exit;
+		}
+		fwrite(dumpbuffer, SECTOR_SIZE, 1, app.file);
+
+		if ((i & 0xF) == 0) {
+			display_spinner();
+		}
+	}
+	printf("\bdone.\n\n");
+
+
+exit:
+	if (app.file) {
+		fclose(app.file);
+		app.file = NULL;
+	}
+
+	if (app.is_detach) {
+		printf("Detaching device ");
+		command_init_act_detach(&cbw);
+		if (command_perform_act_detach(&cbw, &uctx)) {
+			printf("failed.\n");
+		} else {
+			printf("succesful.\n");
+		}
+	}
+	return retval;
+}
+
+
+/*void action_dev(void) {
 	int err;
 	uint8_t resp;
 
@@ -287,54 +372,6 @@ void action_dev(void) {
 	printf("INIT Response: 0x%02hhX\n", resp);
 
 
-	ACTIONSUSBD actid;
-	command_init_act_identify(&cbw, 1);
-	err = command_perform_act_identify(&cbw, &uctx, &actid);
-	if (err) {
-		goto error;
-	}
-	printf("Gathered ID: %11s 0x%02hhX 0x%02hhX\n", actid.actionsusbd, actid.adfu, actid.unknown);
-
-	usleep(100);
-	FILE *fwf;
-
-
-	memset(fw, 0, sizeof(fw));
-	printf("Dumping first logical %i sectors to `fw_log.bin`:\n", sectors);
-	for (uint32_t i = 0; i < sectors; i++) {
-		if ((i & 0x7F) == 0) {
-			printf(".");
-		}
-		command_init_act_readone(&cbw, app.lun, i, true);
-		err = command_perform_act_readone(&cbw, &uctx, ((uint8_t *)&fw) + (i * SECTOR_SIZE));
-		if (err) {
-			goto error;
-		}
-	}
-	fwf = fopen("fw_log.bin", "w");
-	fwrite(&fw, SECTOR_SIZE * sectors, 1, fwf);
-	fclose(fwf);
-	printf("\nDONE\n");
-
-
-	memset(fw, 0, sizeof(fw));
-	printf("Dumping first phisical %i sectors to `fw_phy.bin`:\n", sectors);
-	for (uint32_t i = 0; i < sectors; i++) {
-		if ((i & 0x7F) == 0) {
-			printf(".");
-		}
-		command_init_act_readone(&cbw, app.lun, i, false);
-		err = command_perform_act_readone(&cbw, &uctx, ((uint8_t *)&fw) + (i * SECTOR_SIZE));
-		if (err) {
-			goto error;
-		}
-	}
-	fwf = fopen("fw_phy.bin", "w");
-	fwrite(&fw, SECTOR_SIZE * sectors, 1, fwf);
-	fclose(fwf);
-	printf("\nDONE\n");
-
-
 	memset(fw, 0, sizeof(fw));
 	printf("Dumping RAM to `fw_ram.bin`:\n");
 	for (uint32_t i = 0; i < 0x800; i++) {
@@ -344,7 +381,7 @@ void action_dev(void) {
 		// If you get garbage dump, your device doesn't support RAM read. You can only read
 		// sysinfo. Set then size to 192 bytes - longer reads are ignored. Sector number is
 		// always ignored i this case.
-		command_init_act_read_ram(&cbw, i, 512 /*192*/);
+		command_init_act_read_ram(&cbw, i, 512 192);
 		err = command_perform_act_read_ram(&cbw, &uctx, ((uint8_t *)&fw) + (i * SECTOR_SIZE));
 		if (err) {
 			goto error;
@@ -357,13 +394,7 @@ void action_dev(void) {
 
 
 error:
-	command_init_act_detach(&cbw);
-	err = command_perform_act_detach(&cbw, &uctx);
-	if (err) {
-		return;
-	}
-	printf("DETACH OK\n");
-}
+}*/
 
 int main (int argc, char *argv[]) {
 	enum libusb_error usb_error = 0;
@@ -391,6 +422,9 @@ int main (int argc, char *argv[]) {
 		case APPCMD_HEADINFO:
 			retval = action_headinfo() ? 0 : 1;
 			break;
+		case APPCMD_READ_FW:
+			retval = action_readfw() ? 0 : 1;
+			break;
 		default:
 			printf("Error: Unknown command.\n");
 			retval = -1;
@@ -399,60 +433,3 @@ int main (int argc, char *argv[]) {
 	libusb_exit(NULL);
 	return retval;
 }
-
-
-/*	//unbuffer stdout
-	setvbuf(stdout, NULL, _IONBF, 0);
-
-	cnt = libusb_get_device_list(NULL, &list);
-	if (cnt < 0) {
-		fprintf(stderr, "Count: %li\n", cnt);
-	}
-
-	for (uint32_t i = 0; i < cnt; i++) {
-
-		err = init_bulk_context(&uctx, list[i]);
-		if (err) {
-			if (err != -1) {
-				printf("Init context USB Error: %s\n", libusb_strerror((enum libusb_error)err));
-			}
-			goto next;
-		}
-
-		err = claim_bulk_context(&uctx);
-		if (err) {
-			printf("Claim context USB Error: %s\n", libusb_strerror((enum libusb_error)err));
-			goto next;
-		}
-
-
-		SCSI_INQUIRY test_inquiry;
-		command_init_inquiry(&cbw);
-		err = command_perform_inquiry(&cbw, &uctx, &test_inquiry);
-		if (!err) {
-			char tbuf[100];
-
-			memset(tbuf, 0x20, 100);
-			tbuf[99] = 0;
-			memcpy(tbuf, test_inquiry.vendor, 28);
-			printf("DEVICE %04X:%04X %s\n", uctx.dev_descr.idVendor, uctx.dev_descr.idProduct, tbuf);
-		}
-
-
-		ACTIONSUSBD actid;
-		command_init_act_identify(&cbw, 1);
-		err = command_perform_act_identify(&cbw, &uctx, &actid);
-		if (!err) {
-			printf("Gathered ID: %11s 0x%02hhX 0x%02hhX\n", actid.actionsusbd, actid.adfu, actid.unknown);
-			if (strncmp(actid.actionsusbd, "ACTIONSUSBD", 11) == 0) {
-				action_dev();
-			}
-		}
-
-
-
-next:
-		free_bulk_context(&uctx);
-	}
-
-	libusb_free_device_list(list, 1);*/

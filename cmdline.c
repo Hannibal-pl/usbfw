@@ -12,7 +12,7 @@ const struct option longopt[] = {
 	{"inqiry", 0, NULL, 'i'},
 	{"capacity", 0, NULL, 'C'},
 	{"header-info", 0, NULL, 'I'},
-	{"read", 0, NULL, 'r'},
+//	{"read", 0, NULL, 'r'},
 	{"read-fw", 0, NULL, 'R'},
 	{"help", 0, NULL, 'h'},
 //	{"dump-raw-fw", 0, NULL, 'D'},
@@ -43,8 +43,8 @@ void usage(char *binfile) {
                                print device LBA count and sector size.\n");
 	printf("  -I    --header-info          Fetches firmware header and prints all\n\
                                informations from it.\n");
-	printf("  -r    --read                 Read data from selected logical device starting at\n\
-                               provided start sector and sectors count.\n");
+/*	printf("  -r    --read                 Read data from selected logical device starting at\n\
+                               provided start sector and sectors count.\n");*/
 	printf("  -R    --read-fw              Read data from firmware area, either logical or\n\
                                phisical, starting at provided start sector and\n\
                                sectors count.\n");
@@ -61,7 +61,7 @@ void usage(char *binfile) {
 	printf("  -c    --block-count COUNT    Number of sectors to transfer. Default is 1.\n");
 	printf("  -o    --logical              In case of firmware area operations choose logical one.\n\
                                DEFAULT\n");
-	printf("  -p    --phisical             In case of firmware area operations choose phisical one.\n");
+	printf("  -p    --physical             In case of firmware area operations choose physical one.\n");
 	printf("  -s    --show-dir             Include contents of directory when display header info.\n");
 	printf("  -D    --detach               Detach (restart) device at the end of execution frimware\n\
                                specific commands.\n");

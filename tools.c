@@ -15,7 +15,7 @@ void dbg_printf(char* format, ...) {
 }
 #endif
 
-// expected format id XXXX:XXXX where X is hex digit
+// expected format is XXXX:XXXX where X is hex digit
 bool parse_devid(char *devstring) {
 	char *product;
 	uint32_t vid, pid;
