@@ -14,7 +14,6 @@ void zero_bulk_context(USB_BULK_CONTEXT *uctx) {
 
 int init_bulk_context(USB_BULK_CONTEXT *uctx, libusb_device *dev) {
 	enum libusb_error usb_error = 0;
-	unsigned __line__;
 
 	// clean structure
 	zero_bulk_context(uctx);
@@ -22,22 +21,25 @@ int init_bulk_context(USB_BULK_CONTEXT *uctx, libusb_device *dev) {
 	// get device descriptor
 	usb_error = libusb_get_device_descriptor(dev, &uctx->dev_descr);
 	if (usb_error) {
-		__line__ = __LINE__;
-		goto error;
+		printf("Error: Cannot get device descriptor: %s.\n", libusb_strerror(usb_error));
+		free_bulk_context(uctx);
+		return -1;
 	}
 
 	// open device
 	usb_error = libusb_open(dev, &uctx->handle);
 	if (usb_error) {
-		__line__ = __LINE__;
-		goto error;
+		printf("Error: Cannot open USB device: %s.\n", libusb_strerror(usb_error));
+		free_bulk_context(uctx);
+		return -1;
 	}
 
 	// get configuration descriptor
 	usb_error = libusb_get_config_descriptor(dev, 0, &uctx->conf_descr);
 	if (usb_error) {
-		__line__ = __LINE__;
-		goto error;
+		printf("Error: Cannot get configuration descriptor: %s.\n", libusb_strerror(usb_error));
+		free_bulk_context(uctx);
+		return -1;
 	}
 
 	// enumerate all interfaces for SFF-8070(ATAPI) or SCSI mass storeage bulk ones
@@ -85,11 +87,6 @@ int init_bulk_context(USB_BULK_CONTEXT *uctx, libusb_device *dev) {
 	}
 //	dbg_printf("Warning: No SFF-8070/SCSI mass storage interfaces found.\n");
 	return -1;
-
-error:
-	dbg_printf("%s:%d USB error: %s\n", __func__, __line__, libusb_strerror(usb_error));
-	free_bulk_context(uctx);
-	return usb_error;
 }
 
 int claim_bulk_context(USB_BULK_CONTEXT *uctx) {
@@ -97,7 +94,7 @@ int claim_bulk_context(USB_BULK_CONTEXT *uctx) {
 
 	usb_error = libusb_claim_interface(uctx->handle, uctx->interface);
 	if (usb_error) {
-		dbg_printf("%s:%d USB error: %s\n", __func__, __LINE__, libusb_strerror(usb_error));
+		dbg_printf("USB error: %s\n", libusb_strerror(usb_error));
 		return usb_error;
 	}
 
@@ -133,4 +130,38 @@ void free_bulk_context(USB_BULK_CONTEXT *uctx) {
 
 	// ... and finally zero device descriptor
 	memset(&uctx->dev_descr, 0, sizeof(struct libusb_device_descriptor));
+}
+
+bool open_device(USB_BULK_CONTEXT *uctx, uint16_t vid, uint16_t pid) {
+	libusb_device **list;
+	ssize_t cnt;
+
+	if ((vid == 0) && (pid == 0)) {
+		printf("Error: You must provice real device id not 0000:0000.\n");
+		return false;
+	}
+
+	cnt = libusb_get_device_list(NULL, &list);
+	if (cnt < 0) {
+		printf("Error: Cannot enumerate USB devices: %s\n", libusb_strerror((enum libusb_error)cnt));
+		return false;
+	}
+
+	for (uint32_t i = 0; i < cnt; i++) {
+
+		// device is not mass storage or error
+		if (init_bulk_context(uctx, list[i])) {
+			free_bulk_context(uctx);
+			continue;
+		}
+
+		if ((uctx->dev_descr.idVendor == vid) && (uctx->dev_descr.idProduct == pid)) {
+			libusb_free_device_list(list, 1);
+			return true;
+		}
+
+	}
+
+	libusb_free_device_list(list, 1);
+	return false;
 }

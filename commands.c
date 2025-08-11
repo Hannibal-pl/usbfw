@@ -1,4 +1,5 @@
 #include <string.h>
+#include <endian.h>
 
 #include "usbfw.h"
 
@@ -59,10 +60,10 @@ int command_perform_generic_read(CBW *cbw, USB_BULK_CONTEXT *uctx, unsigned char
 	// send CBW
 	usb_error = libusb_bulk_transfer(uctx->handle, uctx->endpoint_out, (unsigned char *)cbw, sizeof(CBW), &transferred, USB_TIMEOUT);
 	if (usb_error) {
-		dbg_printf("USB error at bulk out (CBW): %s\n",libusb_strerror(usb_error));
+		dbg_printf("USB error at bulk out (CBW): %s\n", libusb_strerror(usb_error));
 		return usb_error;
 	} else if (transferred != sizeof(CBW)) {
-		dbg_printf("Warning - not all data transferred at out endpoint, %i instead of %i\n",transferred, sizeof(CBW));
+		dbg_printf("Warning - not all data transferred at out endpoint, %i instead of %i\n", transferred, sizeof(CBW));
 	}
 
 	// recieve requested data if present
@@ -108,17 +109,41 @@ int command_perform_generic_read(CBW *cbw, USB_BULK_CONTEXT *uctx, unsigned char
 
 // SCSI INQURY command
 
-void command_init_inquiry(CBW *cbw) {
+void command_init_inquiry(CBW *cbw, uint8_t lun) {
 	command_init(cbw);
-	cbw->bCBWLUN = 0;
-	cbw->dCBWDataTransferLength = sizeof(SCSI_INQUIRY);	// size of inquiry response
+	cbw->bCBWLUN = lun;
+	cbw->dCBWDataTransferLength = sizeof(SCSI_INQUIRY);
 	cbw->CBWCB[SCSI_PACKET_CMD] = SCSI_CMD_INQUIRY;
-	cbw->CBWCB[SCSI_PACKET_LUN] = 0;
+	cbw->CBWCB[SCSI_PACKET_LUN] = ((lun << 5) & 0xFF);
 	cbw->CBWCB[4] = sizeof(SCSI_INQUIRY);
 }
 
 int command_perform_inquiry(CBW *cbw, USB_BULK_CONTEXT *uctx, SCSI_INQUIRY *inquiry) {
 	return command_perform_generic_read(cbw, uctx, (unsigned char *)inquiry);
+}
+
+
+// SCSI READ CAPACITY command
+
+void command_init_read_capacity(CBW *cbw, uint8_t lun) {
+	command_init(cbw);
+	cbw->bCBWLUN = lun;
+	cbw->dCBWDataTransferLength = sizeof(SCSI_CAPACITY);
+	cbw->CBWCB[SCSI_PACKET_CMD] = SCSI_CMD_READ_CAPACITY;
+	cbw->CBWCB[SCSI_PACKET_LUN] = ((lun << 5) & 0xFF);
+}
+
+int command_perform_read_capacity(CBW *cbw, USB_BULK_CONTEXT *uctx, SCSI_CAPACITY *capacity) {
+	int err = command_perform_generic_read(cbw, uctx, (unsigned char *)capacity);
+
+	if (err) {
+		return err;
+	}
+	// response is in big endian
+	capacity->lastLBA = be32toh(capacity->lastLBA);
+	capacity->blockSize = be32toh(capacity->blockSize);
+
+	return 0;
 }
 
 

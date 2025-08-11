@@ -102,22 +102,23 @@ typedef struct {
 	uint32_t 		magic;			// 0x0FF0AA55
 	uint8_t			version[4];		// x.x.xx.xxxx
 	uint8_t			date[4];		// xxxx.xx.xx
-	uint16_t		productId;
-	uint16_t 		vendorId;
+	uint16_t 		vendorId;		// vendor ID and product ID are exchange
+	uint16_t		productId;		// in original header
 	uint32_t		dirCheckSum;		// for all 240 catalog items combined
-	uint8_t			fwDescriptor[44];
+	uint8_t			reserved1[12];		// fwDescriptor is shorter than in
+	uint8_t			fwDescriptor[32];	// original header
 	uint8_t			producer[32];
 	uint8_t			deviceName[32];
-	uint8_t			reserved1[128];
+	uint8_t			reserved2[128];
 	uint8_t			usbAttri[8];
 	uint8_t			usbIdentification[16];
 	uint8_t			usbProductVer[4];
-	uint8_t			reserved2[4];
+	uint8_t			reserved3[4];
 	uint8_t			bLength;		// 48
 	uint8_t			bDescriptorType;	// 3 (string)
 	uint8_t			bString[46];
 	FW_COMMON_VAL		defaultInf;
-	uint8_t			reserved3[15];
+	uint8_t			reserved4[15];
 	uint8_t			asciiLen1;
 	uint8_t			mtpManufacturerInfo[32];
 	uint8_t			asciilen2;
@@ -128,7 +129,7 @@ typedef struct {
 	uint8_t			mtpProductSerialNumber[16];
 	uint16_t		mtpVendorId;		// in original header those two are 2 element arrays
 	uint16_t		mtpProductId;		// but this make this structure too large. And in MTP
-	uint8_t			reserved4[38];		// they are 16 bit wide
+	uint8_t			reserved5[38];		// they are 16 bit wide
 	uint16_t		headerChecksum;		// first 510 bytes
 	FW_DIR_ENTRY		diritem[240];
 } FW_HEADER;

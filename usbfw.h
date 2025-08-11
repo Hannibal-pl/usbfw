@@ -21,6 +21,11 @@
 #define		SCSI_PACKET_LBA		2
 #define		SCSI_PACKET_LENGTH	7
 
+// colors
+#define		COLOR_DEFAULT		"\033[0m"
+#define		COLOR_RED		"\033[31m"
+#define		COLOR_GREEN		"\033[32m"
+
 // other
 #define		USB_TIMEOUT		1000		// 1s
 #define		SECTOR_SIZE		512
@@ -78,8 +83,10 @@ void parseparams(int argc, char *argv[]);
 
 //commands.c
 void command_init(CBW *cbw);
-void command_init_inquiry(CBW *cbw);
+void command_init_inquiry(CBW *cbw, uint8_t lun);
 int command_perform_inquiry(CBW *cbw, USB_BULK_CONTEXT *uctx, SCSI_INQUIRY *inquiry);
+void command_init_read_capacity(CBW *cbw, uint8_t lun);
+int command_perform_read_capacity(CBW *cbw, USB_BULK_CONTEXT *uctx, SCSI_CAPACITY *capacity);
 void command_init_act_identify(CBW *cbw, uint8_t lun);
 int command_perform_act_identify(CBW *cbw, USB_BULK_CONTEXT *uctx, ACTIONSUSBD *actid);
 void command_init_act_init(CBW *cbw);
@@ -96,11 +103,14 @@ void zero_bulk_context(USB_BULK_CONTEXT *uctx);
 int init_bulk_context(USB_BULK_CONTEXT *uctx, libusb_device *dev);
 int claim_bulk_context(USB_BULK_CONTEXT *uctx);
 void free_bulk_context(USB_BULK_CONTEXT *uctx);
+bool open_device(USB_BULK_CONTEXT *uctx, uint16_t vid, uint16_t pid);
 
 //main.c
 extern APP_CONTEXT app;
 
 //tool.c
 bool parse_devid(char *devstring);
+char *decode_pdt(uint8_t);
+char* humanize_size(uint64_t size);
 
 #endif

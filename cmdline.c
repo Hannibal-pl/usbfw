@@ -61,7 +61,8 @@ void usage(char *binfile) {
 	printf("  -o    --logical              In case of firmware area operations choose logical one.\n\
                                DEFAULT\n");
 	printf("  -p    --phisical             In case of firmware area operations choose phisical one.\n");
-	printf("  -D    --detach               Detach (restart) device after command execution.\n");
+	printf("  -D    --detach               Detach (restart) device at the end of execution frimware\n\
+                               specific commands.\n");
 	printf("  -a    --alternate            User alternate firmware (if present) in operations.\n");
 }
 
@@ -69,7 +70,7 @@ void parseparams(int argc, char *argv[]) {
 	int opt;
 
 	while (true) {
-		opt = getopt_long(argc, argv, "f:ed:l:L:c:iCIrRoph?", longopt, NULL);
+		opt = getopt_long(argc, argv, "f:ed:l:L:c:iCIrRopDh?", longopt, NULL);
 		if (opt == -1) {
 			break;
 		}
@@ -97,7 +98,7 @@ void parseparams(int argc, char *argv[]) {
 				}
 				app.cmd = APPCMD_CAPACITY;
 				break;
-			case 'H':
+			case 'I':
 				if (app.cmd != APPCMD_NONE) {
 					printf("Error: You have already select command.\n\n");
 					goto help;
