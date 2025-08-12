@@ -12,8 +12,11 @@ const struct option longopt[] = {
 	{"inqiry", 0, NULL, 'i'},
 	{"capacity", 0, NULL, 'C'},
 	{"header-info", 0, NULL, 'I'},
+	{"sys-info", 0, NULL, 'S'},
 //	{"read", 0, NULL, 'r'},
 	{"read-fw", 0, NULL, 'R'},
+	{"test-ram-access", 0, NULL, 'T'},
+	{"read-ram", 0, NULL, 'M'},
 	{"help", 0, NULL, 'h'},
 //	{"dump-raw-fw", 0, NULL, 'D'},
 //	{"dump-afi-fw", 0, NULL, 'a'},
@@ -43,11 +46,17 @@ void usage(char *binfile) {
                                print device LBA count and sector size.\n");
 	printf("  -I    --header-info          Fetches firmware header and prints all\n\
                                informations from it.\n");
+	printf("  -S    --sys-info              Fetches firmware sysinfo and prints all\n\
+                               informations from it.\n");
 /*	printf("  -r    --read                 Read data from selected logical device starting at\n\
-                               provided start sector and sectors count.\n");*/
+                               provided start sector and with sectors count.\n");*/
 	printf("  -R    --read-fw              Read data from firmware area, either logical or\n\
                                phisical, starting at provided start sector and\n\
-                               sectors count.\n");
+                               with sectors count.\n");
+	printf("  -T    --test-ram-access      Chaeck whether full device RAM is accessible.\n");
+	printf("  -M    --read-ram             Read data from devic RAM starting at provided\n\
+                               start sector and with sectors count. Note that your\n\
+                               device may not allow to such action.\n");
 	printf("  -h    --help                 Displays this help\n\n");
 	printf("Additional you can use some of following OPTIONS.\n\n");
 	printf("  -f    --file FILENAME        File name to where data read form device is saved.\n\
@@ -72,7 +81,7 @@ void parseparams(int argc, char *argv[]) {
 	int opt;
 
 	while (true) {
-		opt = getopt_long(argc, argv, "f:ed:l:L:c:iCIrRopsDah?", longopt, NULL);
+		opt = getopt_long(argc, argv, "f:ed:l:L:c:iCISrRTMopsDah?", longopt, NULL);
 		if (opt == -1) {
 			break;
 		}
@@ -107,6 +116,13 @@ void parseparams(int argc, char *argv[]) {
 				}
 				app.cmd = APPCMD_HEADINFO;
 				break;
+			case 'S':
+				if (app.cmd != APPCMD_NONE) {
+					printf("Error: You have already select command.\n\n");
+					goto help;
+				}
+				app.cmd = APPCMD_SYSINFO;
+				break;
 			case 'r':
 				if (app.cmd != APPCMD_NONE) {
 					printf("Error: You have already select command.\n\n");
@@ -120,6 +136,20 @@ void parseparams(int argc, char *argv[]) {
 					goto help;
 				}
 				app.cmd = APPCMD_READ_FW;
+				break;
+			case 'T':
+				if (app.cmd != APPCMD_NONE) {
+					printf("Error: You have already select command.\n\n");
+					goto help;
+				}
+				app.cmd = APPCMD_TEST_RAMACC;
+				break;
+			case 'M':
+				if (app.cmd != APPCMD_NONE) {
+					printf("Error: You have already select command.\n\n");
+					goto help;
+				}
+				app.cmd = APPCMD_READ_RAM;
 				break;
 			case '?':
 			case 'h':

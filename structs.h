@@ -82,7 +82,6 @@ typedef struct {
 	uint32_t		checksum;
 } FW_DIR_ENTRY;
 
-
 typedef struct {
 	uint16_t		magic;			// 0xDEAD
 	uint32_t		systemtime;		// in 0.5s
@@ -133,6 +132,40 @@ typedef struct {
 	uint16_t		headerChecksum;		// first 510 bytes
 	FW_DIR_ENTRY		diritem[240];
 } FW_HEADER;
+
+typedef struct {
+	uint16_t		connInfo[4];		// Storage connection information
+	uint16_t		caps[8];		// Storage capabilities
+} FW_STORAGE_INFO;
+
+typedef struct {
+	uint8_t			frameType[2];		// "HW"
+	uint16_t		icVersion;
+	uint8_t			subversion[2];
+	uint8_t			bromVersion[4];		// x.x.xx.xxxx
+	uint8_t			bromDate[4];		// xxxx.xx.xx
+	uint8_t			bootDiskType[4];
+	FW_STORAGE_INFO		stgInfo;
+	uint8_t			reserved1[22];
+} FW_HWSCAN;
+
+typedef struct {
+	uint8_t			frameType[2];		// "FW"
+	uint16_t		vendorId;
+	uint16_t		productId;
+	uint16_t		firmwareVersion;
+	uint16_t		reserved1;
+	uint8_t			producer[32];
+	uint8_t			deviceName[32];
+	uint8_t			reserved2[14];
+} FW_FWSCAN;
+
+typedef struct {
+	uint8_t			magic[8];		// "SYS INFO"
+	FW_HWSCAN		hwScan;
+	FW_FWSCAN		fwScan;
+	uint8_t			reserved[32];
+} FW_SYSINFO;
 
 #pragma pack()
 

@@ -95,3 +95,44 @@ uint32_t get_fw_size(USB_BULK_CONTEXT *uctx, uint8_t lun, uint32_t start_lba) {
 	// .. and add it length to get firmware size;
 	return file_start + ((file_len + SECTOR_SIZE - 1) / SECTOR_SIZE);
 }
+
+bool test_ram_access(USB_BULK_CONTEXT *uctx) {
+	CBW cbw;
+	uint8_t buf[SYSINFO_SIZE];
+
+	command_init_act_read_ram(&cbw, 0, SYSINFO_SIZE);
+	if (command_perform_act_read_ram(&cbw, uctx, buf)) {
+		printf("Error: Reading RAM at setor 0.\n");
+		return false;
+	}
+
+	// If we get sys info magic at beginning of the memory, which is
+	// impossible, general RAM access is also impossible.
+	if (memcmp(buf, "SYS INFOHW", 10) == 0) {
+		return false;
+	}
+
+	return true;
+}
+
+bool get_fw_sysinfo(USB_BULK_CONTEXT *uctx, FW_SYSINFO *sysinfo) {
+	CBW cbw;
+
+	for (uint32_t i = 0; i < 16; i++) {
+		// Sysinfo is probably at sector 4. Set this on in case whole RAM is available to read
+		command_init_act_read_ram(&cbw, 4, SYSINFO_SIZE);
+		if (command_perform_act_read_ram(&cbw, uctx, (uint8_t *)sysinfo)) {
+			printf("Error: Reading sysinfo\n");
+			return false;
+		}
+	}
+
+	// check for concatenated sysinfo magic and hwscan frame type
+	if (memcmp(sysinfo, "SYS INFOHW", 10) != 0) {
+		printf("Error: Readed data is isn't proper actions sysinfo.\n");
+		return false;
+	}
+
+	return true;
+}
+

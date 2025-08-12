@@ -30,6 +30,7 @@
 // other
 #define		USB_TIMEOUT		1000		// 1s
 #define		SECTOR_SIZE		512
+#define		SYSINFO_SIZE		192
 #define		DEFAULT_OUT_FILENAME	"dump.bin"
 #define		MAX_SEARCH_LBA		65535		// max sector for alternate firmware search
 
@@ -48,8 +49,11 @@ typedef enum {
 	APPCMD_INQUIRY,
 	APPCMD_CAPACITY,
 	APPCMD_HEADINFO,
+	APPCMD_SYSINFO,
 	APPCMD_READ,
-	APPCMD_READ_FW
+	APPCMD_READ_FW,
+	APPCMD_TEST_RAMACC,
+	APPCMD_READ_RAM
 } APP_COMMAND;
 
 
@@ -118,6 +122,8 @@ bool init_act(USB_BULK_CONTEXT *uctx);
 uint32_t search_alternate_fw(USB_BULK_CONTEXT *uctx, uint8_t lun, uint32_t max_lba);
 bool get_fw_header(USB_BULK_CONTEXT *uctx, FW_HEADER *fw_header, uint8_t lun, uint32_t start_lba);
 uint32_t get_fw_size(USB_BULK_CONTEXT *uctx, uint8_t lun, uint32_t start_lba);
+bool test_ram_access(USB_BULK_CONTEXT *uctx);
+bool get_fw_sysinfo(USB_BULK_CONTEXT *uctx, FW_SYSINFO *sysinfo);
 
 //main.c
 extern APP_CONTEXT app;
@@ -132,5 +138,6 @@ char * decode_langid(uint8_t langid);
 char * decode_battery(uint8_t battery);
 char * make_filename(char filename[11]);
 void display_spinner(void);
+bool test_ram_access(USB_BULK_CONTEXT *uctx);
 
 #endif

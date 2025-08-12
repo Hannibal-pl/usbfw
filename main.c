@@ -163,8 +163,17 @@ bool action_headinfo(void) {
 	}
 
 	printf("Recieved information:\n\n");
-	printf("               Version : %01hhX.%01hhX.%02hhX.%0hhX%0hhX\n", fw_header.version[0] >> 4, fw_header.version[0] & 0xF, fw_header.version[1], fw_header.version[2], fw_header.version[3]);
-	printf("                  Date : %02hhX%02hhX.%02hhX.%02hhX\n", fw_header.date[0], fw_header.date[1], fw_header.date[2], fw_header.date[3]);
+	printf("               Version : %01hhX.%01hhX.%02hhX.%02hhX%02hhX\n",
+		fw_header.version[0] >> 4,
+		fw_header.version[0] & 0xF,
+		fw_header.version[1],
+		fw_header.version[2],
+		fw_header.version[3]);
+	printf("                  Date : %02hhX%02hhX.%02hhX.%02hhX\n",
+		fw_header.date[0],
+		fw_header.date[1],
+		fw_header.date[2],
+		fw_header.date[3]);
 	printf("             Vendor ID : 0x%04hX\n", fw_header.vendorId);
 	printf("            Product ID : 0x%04hX\n", fw_header.productId);
 	printf("    Directory Checksum : 0x%08X\n", fw_header.dirCheckSum);
@@ -225,6 +234,81 @@ exit:
 	return retval;
 }
 
+
+bool action_sysinfo(void) {
+	bool retval = false;
+
+	if (!open_and_claim(&uctx, app.vid, app.pid)) {
+		return false;
+	}
+
+	if (!init_act(&uctx)) {
+		retval = false;
+		goto exit;
+	}
+
+	printf("\nReading ACTIONS firmware sysinfo structure from device %04X:%04X\n\n", app.vid, app.pid);
+
+	FW_SYSINFO sysinfo;
+	if (!get_fw_sysinfo(&uctx, &sysinfo)) {
+		retval = false;
+		goto exit;
+	}
+
+	printf("Recieved information:\n\n");
+	printf("            IC Version : %04hX\n", sysinfo.hwScan.icVersion);
+	printf("            SubVersion : %c%c\n", sysinfo.hwScan.subversion[0], sysinfo.hwScan.subversion[1]);
+	printf("          BROM Version : %01hhX.%01hhX.%02hhX.%02hhX%02hhX\n",
+		sysinfo.hwScan.bromVersion[0] >> 4,
+		sysinfo.hwScan.bromVersion[0] & 0xF,
+		sysinfo.hwScan.bromVersion[1],
+		sysinfo.hwScan.bromVersion[2],
+		sysinfo.hwScan.bromVersion[3]);
+	printf("             BROM Date : %02hhX%02hhX.%02hhX.%02hhX\n",
+		sysinfo.hwScan.bromDate[0],
+		sysinfo.hwScan.bromDate[1],
+		sysinfo.hwScan.bromDate[2],
+		sysinfo.hwScan.bromDate[3]);
+	printf("        Boot Disk Type : %.4s\n", sysinfo.hwScan.bootDiskType);
+	printf("     Storage Conn Info : 0x%04hX 0x%04hX 0x%04hX 0x%04hX\n",
+		sysinfo.hwScan.stgInfo.connInfo[0],
+		sysinfo.hwScan.stgInfo.connInfo[1],
+		sysinfo.hwScan.stgInfo.connInfo[2],
+		sysinfo.hwScan.stgInfo.connInfo[3]);
+	printf("  Storage Capabilities : 0x%04hX 0x%04hX 0x%04hX 0x%04hX 0x%04hX 0x%04hX 0x%04hX 0x%04hX\n",
+		sysinfo.hwScan.stgInfo.caps[0],
+		sysinfo.hwScan.stgInfo.caps[1],
+		sysinfo.hwScan.stgInfo.caps[2],
+		sysinfo.hwScan.stgInfo.caps[3],
+		sysinfo.hwScan.stgInfo.caps[4],
+		sysinfo.hwScan.stgInfo.caps[5],
+		sysinfo.hwScan.stgInfo.caps[6],
+		sysinfo.hwScan.stgInfo.caps[7]);
+	printf("             Vendor ID : %04hX\n", sysinfo.fwScan.vendorId);
+	printf("            Product ID : %04hX\n", sysinfo.fwScan.productId);
+	printf("      Firmware Version : %04hX\n", sysinfo.fwScan.firmwareVersion);
+	printf("              Producer : %.32s\n", sysinfo.fwScan.producer);
+	printf("           Device Name : %.32s\n", sysinfo.fwScan.deviceName);
+
+
+	printf("\n");
+
+	retval = true;
+
+exit:
+	if (app.is_detach) {
+		printf("Detaching device ");
+		command_init_act_detach(&cbw);
+		if (command_perform_act_detach(&cbw, &uctx)) {
+			printf("failed.\n");
+		} else {
+			printf("succesful.\n");
+		}
+	}
+	return retval;
+}
+
+
 bool action_readfw(void) {
 	bool retval = false;
 
@@ -283,42 +367,109 @@ exit:
 	return retval;
 }
 
+bool action_test_ramacc(void) {
+	bool retval = false;
 
-/*void action_dev(void) {
-	int err;
-	uint8_t resp;
-
-	command_init_act_init(&cbw);
-	err = command_perform_act_init(&cbw, &uctx, &resp);
-	if (err) {
-		return;
+	if (!open_and_claim(&uctx, app.vid, app.pid)) {
+		return false;
 	}
-	printf("INIT Response: 0x%02hhX\n", resp);
 
+	if (!init_act(&uctx)) {
+		retval = false;
+		goto exit;
+	}
 
-	memset(fw, 0, sizeof(fw));
-	printf("Dumping RAM to `fw_ram.bin`:\n");
-	for (uint32_t i = 0; i < 0x800; i++) {
-		if ((i & 0x7F) == 0) {
-			printf(".");
-		}
-		// If you get garbage dump, your device doesn't support RAM read. You can only read
-		// sysinfo. Set then size to 192 bytes - longer reads are ignored. Sector number is
-		// always ignored i this case.
-		command_init_act_read_ram(&cbw, i, 512 192);
-		err = command_perform_act_read_ram(&cbw, &uctx, ((uint8_t *)&fw) + (i * SECTOR_SIZE));
-		if (err) {
-			goto error;
+	printf("\nGeneral RAM access is %s.\n\n", test_ram_access(&uctx) ? "possible" : "impossible");
+
+exit:
+	if (app.file) {
+		fclose(app.file);
+		app.file = NULL;
+	}
+
+	if (app.is_detach) {
+		printf("Detaching device ");
+		command_init_act_detach(&cbw);
+		if (command_perform_act_detach(&cbw, &uctx)) {
+			printf("failed.\n");
+		} else {
+			printf("succesful.\n");
 		}
 	}
-	fwf = fopen("fw_phy.ram", "w");
-	fwrite(&fw, SECTOR_SIZE * 0x800, 1, fwf);
-	fclose(fwf);
-	printf("\nDONE\n");
+	return retval;
+}
+
+bool action_readram(void) {
+	bool retval = false;
+
+	if (app.lba >= 0x800) {
+		printf("Error: LBA should be less than (2048) 0x800.\n");
+		return false;
+	}
+
+	if (app.lba + app.bc > 0x800) {
+		printf("Error: LBA + block count should be less or equal (2048) 0x800.\n");
+		return false;
+	}
+
+	if (!open_and_claim(&uctx, app.vid, app.pid)) {
+		return false;
+	}
+
+	if (!init_act(&uctx)) {
+		retval = false;
+		goto exit;
+	}
+
+	printf("\nReading ACTIONS device %04X:%04X RAM to file \"%s\",\n", app.vid, app.pid, app.filename);
+	printf("starting at sector 0x%08X and ending at sector 0x%08X (0x%08X sectors total).\n\n", app.lba, app.lba + app.bc - 1, app.bc);
+
+	if (!test_ram_access(&uctx)) {
+		printf("Warning: Your device probably doesn't support this feature. Expect garbage output.\n\n");
+	}
+
+	app.file = fopen(app.filename, "w");
+	if (!app.file) {
+		printf("Error: Cannot open output file \"%s\".", app.filename);
+		retval = false;
+		goto exit;
+	}
+
+	printf("Reading RAM ...  ");
+	uint8_t dumpbuffer[SECTOR_SIZE];
+	for (uint32_t i = app.lba; i < app.lba + app.bc; i++) {
+		command_init_act_read_ram(&cbw, i, SECTOR_SIZE);
+		if (command_perform_act_read_ram(&cbw, &uctx, (uint8_t *)&dumpbuffer)) {
+			printf("Error: Reading RAM failed at sector %i\n", i);
+			retval = false;
+			goto exit;
+		}
+		fwrite(dumpbuffer, SECTOR_SIZE, 1, app.file);
+
+		if ((i & 0xF) == 0) {
+			display_spinner();
+		}
+	}
+	printf("\bdone.\n\n");
 
 
-error:
-}*/
+exit:
+	if (app.file) {
+		fclose(app.file);
+		app.file = NULL;
+	}
+
+	if (app.is_detach) {
+		printf("Detaching device ");
+		command_init_act_detach(&cbw);
+		if (command_perform_act_detach(&cbw, &uctx)) {
+			printf("failed.\n");
+		} else {
+			printf("succesful.\n");
+		}
+	}
+	return retval;
+}
 
 int main (int argc, char *argv[]) {
 	enum libusb_error usb_error = 0;
@@ -346,8 +497,17 @@ int main (int argc, char *argv[]) {
 		case APPCMD_HEADINFO:
 			retval = action_headinfo() ? 0 : 1;
 			break;
+		case APPCMD_SYSINFO:
+			retval = action_sysinfo() ? 0 : 1;
+			break;
 		case APPCMD_READ_FW:
 			retval = action_readfw() ? 0 : 1;
+			break;
+		case APPCMD_TEST_RAMACC:
+			retval = action_test_ramacc() ? 0 : 1;
+			break;
+		case APPCMD_READ_RAM:
+			retval = action_readram() ? 0 : 1;
 			break;
 		default:
 			printf("Error: Unknown command.\n");
