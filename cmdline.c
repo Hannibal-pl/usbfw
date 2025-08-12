@@ -17,8 +17,9 @@ const struct option longopt[] = {
 	{"read-fw", 0, NULL, 'R'},
 	{"test-ram-access", 0, NULL, 'T'},
 	{"read-ram", 0, NULL, 'M'},
+	{"dump-raw-fw", 0, NULL, 'P'},
+	{"entry", 1, NULL, 'e'},
 	{"help", 0, NULL, 'h'},
-//	{"dump-raw-fw", 0, NULL, 'D'},
 //	{"dump-afi-fw", 0, NULL, 'a'},
 
 	// options
@@ -32,6 +33,7 @@ const struct option longopt[] = {
 	{"show-dir", 0, NULL, 's'},
 	{"detach", 0, NULL, 'D'},
 	{"alternate", 0, NULL, 'a'},
+	{"yes-i-know-what-im-doing", 0, NULL, CMDLINE_YESIKNOW},
 	{NULL, 0, NULL, 0}};
 
 
@@ -57,6 +59,9 @@ void usage(char *binfile) {
 	printf("  -M    --read-ram             Read data from devic RAM starting at provided\n\
                                start sector and with sectors count. Note that your\n\
                                device may not allow to such action.\n");
+	printf("  -P    --dump-raw-fw          Dumps main part of firmware into file.\n");
+	printf("  -E    --entry PARAM          Call fw entry command with provided paramerer.\n\
+                               DANGEROUS!!! confirm with --yes-i-know-what-im-doing.\n");
 	printf("  -h    --help                 Displays this help\n\n");
 	printf("Additional you can use some of following OPTIONS.\n\n");
 	printf("  -f    --file FILENAME        File name to where data read form device is saved.\n\
@@ -75,13 +80,14 @@ void usage(char *binfile) {
 	printf("  -D    --detach               Detach (restart) device at the end of execution frimware\n\
                                specific commands.\n");
 	printf("  -a    --alternate            User alternate firmware (if present) in operations.\n");
+	printf("  --yes-i-know-what-im-doing   Confirm execution of dangerous command.\n");
 }
 
 void parseparams(int argc, char *argv[]) {
 	int opt;
 
 	while (true) {
-		opt = getopt_long(argc, argv, "f:ed:l:L:c:iCISrRTMopsDah?", longopt, NULL);
+		opt = getopt_long(argc, argv, "f:ed:l:L:c:iCISrRTMPE:opsDah?", longopt, NULL);
 		if (opt == -1) {
 			break;
 		}
@@ -151,6 +157,25 @@ void parseparams(int argc, char *argv[]) {
 				}
 				app.cmd = APPCMD_READ_RAM;
 				break;
+			case 'P':
+				if (app.cmd != APPCMD_NONE) {
+					printf("Error: You have already select command.\n\n");
+					goto help;
+				}
+				app.cmd = APPCMD_DUMP_RAW;
+				break;
+			case 'E':
+				if (app.cmd != APPCMD_NONE) {
+					printf("Error: You have already select command.\n\n");
+					goto help;
+				}
+				app.cmd = APPCMD_ENTRY;
+				if (optarg == NULL) {
+					printf("Error: You must provide entry command parameter.\n\n");
+					exit(-1);
+				}
+				app.entry_param = strtoul(optarg, NULL, 0);
+				break;
 			case '?':
 			case 'h':
 				goto help;
@@ -212,6 +237,9 @@ void parseparams(int argc, char *argv[]) {
 				break;
 			case 'a':
 				app.is_alt_fw = true;
+				break;
+			case CMDLINE_YESIKNOW:
+				app.is_yesiknow = true;
 				break;
 		}
 	}

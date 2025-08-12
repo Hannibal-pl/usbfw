@@ -11,6 +11,7 @@
 #define		SCSI_CMD_ACTF_NAND_PHY	0x09
 #define		SCSI_CMD_INQUIRY	0x12
 #define		SCSI_CMD_ACTF_DETACH	0x16
+#define		SCSI_CMD_ACTF_ENTRY	0x20
 #define		SCSI_CMD_READ_CAPACITY	0x25
 #define		SCSI_CMD_READ10		0x28
 #define		SCSI_CMD_ACT_INIT	0xCB
@@ -26,6 +27,9 @@
 #define		COLOR_DEFAULT		"\033[0m"
 #define		COLOR_RED		"\033[31m"
 #define		COLOR_GREEN		"\033[32m"
+
+// long commands
+#define		CMDLINE_YESIKNOW	1000
 
 // other
 #define		USB_TIMEOUT		1000		// 1s
@@ -53,7 +57,9 @@ typedef enum {
 	APPCMD_READ,
 	APPCMD_READ_FW,
 	APPCMD_TEST_RAMACC,
-	APPCMD_READ_RAM
+	APPCMD_READ_RAM,
+	APPCMD_DUMP_RAW,
+	APPCMD_ENTRY
 } APP_COMMAND;
 
 
@@ -82,6 +88,8 @@ typedef struct {
 	bool				is_showdir;	// show directory in APPCMD_HEADINFO
 	bool				is_detach;	// detach device at exit
 	bool				is_alt_fw;	// use alternate (backup?) firmware
+	bool				is_yesiknow;	// confirmation of dangerous commands
+	uint16_t			entry_param;	// parameter for entry command
 } APP_CONTEXT;
 
 
@@ -108,6 +116,8 @@ void command_init_act_readone(CBW *cbw, uint8_t lun, uint32_t lba, bool is_log);
 int command_perform_act_readone(CBW *cbw, USB_BULK_CONTEXT *uctx, uint8_t *buf);
 void command_init_act_read_ram(CBW *cbw, uint16_t sector, uint16_t length);
 int command_perform_act_read_ram(CBW *cbw, USB_BULK_CONTEXT *uctx, uint8_t *buf);
+void command_init_act_entry(CBW *cbw, uint16_t param);
+int command_perform_act_entry(CBW *cbw, USB_BULK_CONTEXT *uctx);
 
 //context.c
 void zero_bulk_context(USB_BULK_CONTEXT *uctx);
@@ -140,5 +150,6 @@ char * decode_battery(uint8_t battery);
 char * make_filename(char filename[11]);
 void display_spinner(void);
 bool test_ram_access(USB_BULK_CONTEXT *uctx);
+bool confirm(void);
 
 #endif

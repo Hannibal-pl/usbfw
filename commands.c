@@ -255,5 +255,20 @@ int command_perform_act_read_ram(CBW *cbw, USB_BULK_CONTEXT *uctx, uint8_t *buf)
 	return command_perform_generic_read(cbw, uctx, (unsigned char *)buf);
 }
 
+// ACTIONS ENTRY command
+
+void command_init_act_entry(CBW *cbw, uint16_t param) {
+	command_init(cbw);
+	cbw->bCBWLUN = 0;
+	cbw->dCBWDataTransferLength = 0;
+	cbw->CBWCB[SCSI_PACKET_CMD] = SCSI_CMD_ACTF_ENTRY;
+	cbw->CBWCB[SCSI_PACKET_LUN + 0] = (param >> 0) & 0xFF;
+	cbw->CBWCB[SCSI_PACKET_LUN + 1] = (param >> 8) & 0xFF;
+}
+
+int command_perform_act_entry(CBW *cbw, USB_BULK_CONTEXT *uctx) {
+	return command_perform_generic_read(cbw, uctx, NULL);
+}
+
 
 

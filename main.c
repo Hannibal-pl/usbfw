@@ -20,7 +20,9 @@ APP_CONTEXT app = {	.cmd		= APPCMD_NONE,
 			.is_logical	= true,
 			.is_showdir	= false,
 			.is_detach	= false,
-			.is_alt_fw	= false
+			.is_alt_fw	= false,
+			.is_alt_fw	= false,
+			.entry_param	= 0
 };
 
 USB_BULK_CONTEXT uctx;
@@ -426,6 +428,100 @@ exit:
 	return retval;
 }
 
+bool action_dumpraw(void) {
+	bool retval = false;
+	uint32_t first_sector = 0;
+	uint32_t size = 0;
+
+	if (!open_and_claim(&uctx, app.vid, app.pid)) {
+		return false;
+	}
+
+	if (!init_act(&uctx)) {
+		retval = false;
+		goto exit;
+	}
+
+	printf("\nDumping ACTIONS firmware header (%s) from device %04X:%04X LUN:%i to file \"%s\".\n\n", app.is_alt_fw ? "alternate" : "main", app.vid, app.pid, app.lun, app.filename);
+
+	app.file = fopen(app.filename, "w");
+	if (!app.file) {
+		printf("Error: Cannot open output file \"%s\".", app.filename);
+		retval = false;
+		goto exit;
+	}
+
+	if (app.is_alt_fw) {
+		first_sector = search_alternate_fw(&uctx, app.lun, MAX_SEARCH_LBA);
+		// exit if error or not found
+		if ((first_sector == 0xFFFFFFFF) || (first_sector == 0xFFFFFFFF)) {
+			retval = false;
+			goto exit;
+		}
+	}
+
+	size = get_fw_size(&uctx, 0, first_sector);
+
+	printf("Reading firmware ...  ");
+	uint8_t dumpbuffer[SECTOR_SIZE];
+	for (uint32_t i = first_sector; i < first_sector + size; i++) {
+		command_init_act_readone(&cbw, app.lun, i, 1);
+		if (command_perform_act_readone(&cbw, &uctx, (uint8_t *)&dumpbuffer)) {
+			printf("Error: Reading firmware failed at sector %i.\n", i);
+			retval = false;
+			goto exit;
+		}
+		fwrite(dumpbuffer, SECTOR_SIZE, 1, app.file);
+
+		if ((i & 0xF) == 0) {
+			display_spinner();
+		}
+	}
+	printf("\bdone.\n\n");
+
+exit:
+	if (app.file) {
+		fclose(app.file);
+		app.file = NULL;
+	}
+
+	detach_device(&uctx, app.is_detach);
+	return retval;
+}
+
+bool action_entry(void) {
+	bool retval = false;
+
+	if (!open_and_claim(&uctx, app.vid, app.pid)) {
+		return false;
+	}
+
+	if (!init_act(&uctx)) {
+		retval = false;
+		goto exit;
+	}
+
+	if (!confirm()) {
+		return false;
+	}
+
+	printf("\nRunning ACTIONS firmware entry command with param 0x%04hX to device %04X:%04X\n\n", app.entry_param, app.vid, app.pid);
+
+	command_init_act_entry(&cbw, app.entry_param);
+	if (command_perform_act_entry(&cbw, &uctx)) {
+		printf("Error: Running entry command.\n");
+		retval = false;
+		goto exit;
+	}
+
+
+exit:
+	detach_device(&uctx, app.is_detach);
+	return retval;
+}
+
+
+
 int main (int argc, char *argv[]) {
 	enum libusb_error usb_error = 0;
 	int retval;
@@ -463,6 +559,12 @@ int main (int argc, char *argv[]) {
 			break;
 		case APPCMD_READ_RAM:
 			retval = action_readram() ? 0 : 1;
+			break;
+		case APPCMD_DUMP_RAW:
+			retval = action_dumpraw() ? 0 : 1;
+			break;
+		case APPCMD_ENTRY:
+			retval = action_entry() ? 0 : 1;
 			break;
 		default:
 			printf("Error: Unknown command.\n");

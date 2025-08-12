@@ -195,3 +195,13 @@ void display_spinner(void) {
 		i = 0;
 	}
 }
+
+
+bool confirm(void) {
+	if (!app.is_yesiknow) {
+		printf("You have run "COLOR_RED"DANGEROUS"COLOR_DEFAULT" command!\nYou must confirm you action with adding param \"--yes-i-know-what-im-doing\".\n");
+		return false;
+	}
+
+	return true;
+}
