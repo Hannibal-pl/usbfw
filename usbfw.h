@@ -111,7 +111,13 @@ int init_bulk_context(USB_BULK_CONTEXT *uctx, libusb_device *dev);
 int claim_bulk_context(USB_BULK_CONTEXT *uctx);
 void free_bulk_context(USB_BULK_CONTEXT *uctx);
 bool open_device(USB_BULK_CONTEXT *uctx, uint16_t vid, uint16_t pid);
+bool open_and_claim(USB_BULK_CONTEXT *uctx, uint16_t vid, uint16_t pid);
+
+//fw.c
+bool init_act(USB_BULK_CONTEXT *uctx);
 uint32_t search_alternate_fw(USB_BULK_CONTEXT *uctx, uint8_t lun, uint32_t max_lba);
+bool get_fw_header(USB_BULK_CONTEXT *uctx, FW_HEADER *fw_header, uint8_t lun, uint32_t start_lba);
+uint32_t get_fw_size(USB_BULK_CONTEXT *uctx, uint8_t lun, uint32_t start_lba);
 
 //main.c
 extern APP_CONTEXT app;

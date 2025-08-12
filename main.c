@@ -26,9 +26,6 @@ APP_CONTEXT app = {	.cmd		= APPCMD_NONE,
 USB_BULK_CONTEXT uctx;
 CBW cbw;
 
-#define sectors  (1024 * 64)
-uint8_t fw[SECTOR_SIZE * sectors];
-
 bool enumerate_devices(void) {
 	libusb_device **list;
 	enum libusb_error usb_error;
@@ -84,17 +81,7 @@ bool enumerate_devices(void) {
 }
 
 bool scsi_inquiry(void) {
-	enum libusb_error usb_error;
-
-	if (!open_device(&uctx, app.vid, app.pid)) {
-		printf("Error: Cannot opend device %04hX:%04hX.\n", app.vid, app.pid);
-		return false;
-	}
-
-	usb_error = claim_bulk_context(&uctx);
-	if (usb_error) {
-		printf("Error: Cannot claim USB endpoint: %s\n", libusb_strerror(usb_error));
-		free_bulk_context(&uctx);
+	if (!open_and_claim(&uctx, app.vid, app.pid)) {
 		return false;
 	}
 
@@ -109,7 +96,7 @@ bool scsi_inquiry(void) {
 		return false;
 	}
 
-	printf("Recieved information:\n");
+	printf("Recieved information:\n\n");
 	printf("Peripheral Device Type : %i (%s).\n", inquiry.pdt, decode_pdt(inquiry.pdt));
 	printf("          Is removable : %s\n", inquiry.is_removable ? "NO" : "YES");
 	printf("           ISO version : %i\n", inquiry.iso_version);
@@ -125,8 +112,7 @@ bool scsi_inquiry(void) {
 }
 
 bool scsi_read_capacity(void) {
-	if (!open_device(&uctx, app.vid, app.pid)) {
-		printf("Error: Cannot opend device %04hX:%04hX.\n", app.vid, app.pid);
+	if (!open_and_claim(&uctx, app.vid, app.pid)) {
 		return false;
 	}
 
@@ -147,40 +133,14 @@ bool scsi_read_capacity(void) {
 }
 
 bool action_headinfo(void) {
-	enum libusb_error usb_error;
 	bool retval = false;
 	uint32_t first_sector = 0;
 
-	if (!open_device(&uctx, app.vid, app.pid)) {
-		printf("Error: Cannot opend device %04hX:%04hX.\n", app.vid, app.pid);
+	if (!open_and_claim(&uctx, app.vid, app.pid)) {
 		return false;
 	}
 
-	usb_error = claim_bulk_context(&uctx);
-	if (usb_error) {
-		printf("Error: Cannot claim USB endpoint: %s\n", libusb_strerror(usb_error));
-		free_bulk_context(&uctx);
-		return false;
-	}
-
-	// check for Actions device
-	ACTIONSUSBD actid;
-	command_init_act_identify(&cbw, 1);
-	if (command_perform_act_identify(&cbw, &uctx, &actid)) {
-		printf("Error: Cannot identify Actions device.\n");
-		retval = false;
-		goto exit;
-	} else if (strncmp(actid.actionsusbd, "ACTIONSUSBD", 11) != 0) {
-		printf("Error: Actions indentifier not match\n");
-		retval = false;
-		goto exit;
-	}
-
-	// init firmware mode
-	uint8_t resp;
-	command_init_act_init(&cbw);
-	if ((command_perform_act_init(&cbw, &uctx, &resp)) || (resp != 0xFF)) {
-		printf("Error: Unable to init firmware mode\n");
+	if (!init_act(&uctx)) {
 		retval = false;
 		goto exit;
 	}
@@ -197,17 +157,7 @@ bool action_headinfo(void) {
 	}
 
 	FW_HEADER fw_header;
-	for (uint32_t i = 0; i < 16; i++) {
-		command_init_act_readone(&cbw, app.lun, first_sector + i, true);
-		if (command_perform_act_readone(&cbw, &uctx, ((uint8_t *)&fw_header) + (i * SECTOR_SIZE))) {
-			printf("Error: Reading header failed at sector %i\n", i);
-			retval = false;
-			goto exit;
-		}
-	}
-
-	if (fw_header.magic != 0x0FF0AA55) {
-		printf("Error: Readed data is isn't proper actions firmware header.\n");
+	if (!get_fw_header(&uctx, &fw_header, app.lun, first_sector)) {
 		retval = false;
 		goto exit;
 	}
@@ -276,39 +226,13 @@ exit:
 }
 
 bool action_readfw(void) {
-	enum libusb_error usb_error;
 	bool retval = false;
 
-	if (!open_device(&uctx, app.vid, app.pid)) {
-		printf("Error: Cannot opend device %04hX:%04hX.\n", app.vid, app.pid);
+	if (!open_and_claim(&uctx, app.vid, app.pid)) {
 		return false;
 	}
 
-	usb_error = claim_bulk_context(&uctx);
-	if (usb_error) {
-		printf("Error: Cannot claim USB endpoint: %s\n", libusb_strerror(usb_error));
-		free_bulk_context(&uctx);
-		return false;
-	}
-
-	// check for Actions device
-	ACTIONSUSBD actid;
-	command_init_act_identify(&cbw, 1);
-	if (command_perform_act_identify(&cbw, &uctx, &actid)) {
-		printf("Error: Cannot identify Actions device.\n");
-		retval = false;
-		goto exit;
-	} else if (strncmp(actid.actionsusbd, "ACTIONSUSBD", 11) != 0) {
-		printf("Error: Actions indentifier not match\n");
-		retval = false;
-		goto exit;
-	}
-
-	// init firmware mode
-	uint8_t resp;
-	command_init_act_init(&cbw);
-	if ((command_perform_act_init(&cbw, &uctx, &resp)) || (resp != 0xFF)) {
-		printf("Error: Unable to init firmware mode\n");
+	if (!init_act(&uctx)) {
 		retval = false;
 		goto exit;
 	}

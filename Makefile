@@ -3,7 +3,7 @@ CC=gcc
 CFLAGS=-Wall -g -std=gnu99 -flto
 INCLUDES=-I/usr/include -I/usr/include/libusb-1.0
 LIBS=-L/usr/lib64 -lm -lusb-1.0
-MOD=cmdline.o context.o commands.o main.o tools.o
+MOD=cmdline.o context.o commands.o fw.o main.o tools.o
 
 all: usbfw
 

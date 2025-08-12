@@ -166,29 +166,20 @@ bool open_device(USB_BULK_CONTEXT *uctx, uint16_t vid, uint16_t pid) {
 	return false;
 }
 
+bool open_and_claim(USB_BULK_CONTEXT *uctx, uint16_t vid, uint16_t pid) {
+	enum libusb_error usb_error;
 
-uint32_t search_alternate_fw(USB_BULK_CONTEXT *uctx, uint8_t lun, uint32_t max_lba) {
-	FW_HEADER fw_header;
-	CBW cbw;
-
-	printf("Searching for alternate header...  ");
-	for (uint32_t i = 8; i < max_lba; i++) {
-		command_init_act_readone(&cbw, lun, i, true);
-		if (command_perform_act_readone(&cbw, uctx, (uint8_t *)&fw_header)) {
-			printf("\nError: Searching alternate header failed at sector %i\n", i);
-			return 0xFFFFFFFF;
-		}
-		// header found
-		if (fw_header.magic == 0x0FF0AA55) {
-			printf("\bfound at sector 0x%08X\n\n", i);
-			return i;
-		}
-
-		if ((i & 0xF) == 0) {
-			display_spinner();
-		}
+	if (!open_device(uctx, vid, pid)) {
+		printf("Error: Cannot opend device %04hX:%04hX.\n", vid, pid);
+		return false;
 	}
 
-	printf("\bnot found.\n\n");
-	return 0;
+	usb_error = claim_bulk_context(uctx);
+	if (usb_error) {
+		printf("Error: Cannot claim USB endpoint: %s\n", libusb_strerror(usb_error));
+		free_bulk_context(uctx);
+		return false;
+	}
+
+	return true;
 }
