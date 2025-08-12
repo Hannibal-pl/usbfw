@@ -124,6 +124,7 @@ bool get_fw_header(USB_BULK_CONTEXT *uctx, FW_HEADER *fw_header, uint8_t lun, ui
 uint32_t get_fw_size(USB_BULK_CONTEXT *uctx, uint8_t lun, uint32_t start_lba);
 bool test_ram_access(USB_BULK_CONTEXT *uctx);
 bool get_fw_sysinfo(USB_BULK_CONTEXT *uctx, FW_SYSINFO *sysinfo);
+void detach_device(USB_BULK_CONTEXT *uctx, bool detach);
 
 //main.c
 extern APP_CONTEXT app;

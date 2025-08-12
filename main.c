@@ -222,15 +222,7 @@ bool action_headinfo(void) {
 	retval = true;
 
 exit:
-	if (app.is_detach) {
-		printf("Detaching device ");
-		command_init_act_detach(&cbw);
-		if (command_perform_act_detach(&cbw, &uctx)) {
-			printf("failed.\n");
-		} else {
-			printf("succesful.\n");
-		}
-	}
+	detach_device(&uctx, app.is_detach);
 	return retval;
 }
 
@@ -296,15 +288,7 @@ bool action_sysinfo(void) {
 	retval = true;
 
 exit:
-	if (app.is_detach) {
-		printf("Detaching device ");
-		command_init_act_detach(&cbw);
-		if (command_perform_act_detach(&cbw, &uctx)) {
-			printf("failed.\n");
-		} else {
-			printf("succesful.\n");
-		}
-	}
+	detach_device(&uctx, app.is_detach);
 	return retval;
 }
 
@@ -355,15 +339,7 @@ exit:
 		app.file = NULL;
 	}
 
-	if (app.is_detach) {
-		printf("Detaching device ");
-		command_init_act_detach(&cbw);
-		if (command_perform_act_detach(&cbw, &uctx)) {
-			printf("failed.\n");
-		} else {
-			printf("succesful.\n");
-		}
-	}
+	detach_device(&uctx, app.is_detach);
 	return retval;
 }
 
@@ -382,20 +358,7 @@ bool action_test_ramacc(void) {
 	printf("\nGeneral RAM access is %s.\n\n", test_ram_access(&uctx) ? "possible" : "impossible");
 
 exit:
-	if (app.file) {
-		fclose(app.file);
-		app.file = NULL;
-	}
-
-	if (app.is_detach) {
-		printf("Detaching device ");
-		command_init_act_detach(&cbw);
-		if (command_perform_act_detach(&cbw, &uctx)) {
-			printf("failed.\n");
-		} else {
-			printf("succesful.\n");
-		}
-	}
+	detach_device(&uctx, app.is_detach);
 	return retval;
 }
 
@@ -459,15 +422,7 @@ exit:
 		app.file = NULL;
 	}
 
-	if (app.is_detach) {
-		printf("Detaching device ");
-		command_init_act_detach(&cbw);
-		if (command_perform_act_detach(&cbw, &uctx)) {
-			printf("failed.\n");
-		} else {
-			printf("succesful.\n");
-		}
-	}
+	detach_device(&uctx, app.is_detach);
 	return retval;
 }
 

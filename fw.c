@@ -136,3 +136,16 @@ bool get_fw_sysinfo(USB_BULK_CONTEXT *uctx, FW_SYSINFO *sysinfo) {
 	return true;
 }
 
+void detach_device(USB_BULK_CONTEXT *uctx, bool detach) {
+	CBW cbw;
+
+	if (detach) {
+		printf("Detaching device ");
+		command_init_act_detach(&cbw);
+		if (command_perform_act_detach(&cbw, uctx)) {
+			printf("failed.\n");
+		} else {
+			printf("succesful.\n");
+		}
+	}
+}

@@ -46,7 +46,7 @@ void usage(char *binfile) {
                                print device LBA count and sector size.\n");
 	printf("  -I    --header-info          Fetches firmware header and prints all\n\
                                informations from it.\n");
-	printf("  -S    --sys-info              Fetches firmware sysinfo and prints all\n\
+	printf("  -S    --sys-info             Fetches firmware sysinfo and prints all\n\
                                informations from it.\n");
 /*	printf("  -r    --read                 Read data from selected logical device starting at\n\
                                provided start sector and with sectors count.\n");*/
