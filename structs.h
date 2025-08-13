@@ -167,6 +167,40 @@ typedef struct {
 	uint8_t			reserved[32];
 } FW_SYSINFO;
 
+typedef struct {
+	char			filename[11];		// 8.3
+	uint8_t			type;			// 'H', 'F', 'B', 'I', 'A', 'S'
+	uint32_t		downloadAddr;
+	uint32_t		offset;
+	uint32_t		length;
+	uint8_t			subtype[4];
+	uint32_t		checksum;
+} FW_AFI_DIR_ENTRY;
+
+typedef struct {
+	char			magic[4];		// "AFI\0x00"
+	uint16_t		vendorId;
+	uint16_t		productId;
+	uint8_t			version[4];
+	uint8_t			date[4];
+	uint8_t			reserved1[16];
+	FW_AFI_DIR_ENTRY	diritem[126];
+	uint8_t			reserved2[28];
+	uint32_t		checksum;
+} FW_AFI_HEADER;
+
+typedef struct {
+	uint32_t		jump[4];		// jump code
+	uint8_t			magic[4];		// "BREC"
+	uint8_t			type[4];
+	uint16_t		version;
+	uint8_t			date[4];
+	uint8_t			reserved[2];
+	uint8_t			code[0x4000 - 20 - 32];
+	uint8_t			brecInfo[30];
+	uint16_t		checksum;
+} FW_BREC;
+
 #pragma pack()
 
 #endif

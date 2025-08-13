@@ -225,3 +225,45 @@ bool confirm(void) {
 
 	return true;
 }
+
+//size is in bytes
+uint16_t checksum16(uint16_t *data, uint32_t size, bool is_new) {
+	static uint16_t checksum;
+
+	if (size & 0x1) {
+		dbg_printf("Checksum 16 data not aligned.\n");
+	}
+
+	size >>= 1;
+
+	if (is_new) {
+		checksum = 0;
+	}
+
+	for (uint32_t i = 0; i < size; i++) {
+		checksum += data[i];
+	}
+
+	return checksum;
+}
+
+//size is in bytes
+uint32_t checksum32(uint32_t *data, uint32_t size, bool is_new) {
+	static uint32_t checksum;
+
+	if (size & 0x3) {
+		dbg_printf("Checksum 32 data not aligned.\n", );
+	}
+
+	size >>= 2;
+
+	if (is_new) {
+		checksum = 0;
+	}
+
+	for (uint32_t i = 0; i < size; i++) {
+		checksum += data[i];
+	}
+
+	return checksum;
+}

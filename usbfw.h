@@ -97,6 +97,9 @@ typedef struct {
 } APP_CONTEXT;
 
 
+//afi.c
+FILE * afi_new_file(char *filename);
+
 //cmdline.c
 void parseparams(int argc, char *argv[]);
 
@@ -158,5 +161,7 @@ void display_spinner(void);
 void display_percent_spinner(uint32_t current, uint32_t max);
 bool test_ram_access(USB_BULK_CONTEXT *uctx);
 bool confirm(void);
+uint16_t checksum16(uint16_t *data, uint32_t size, bool is_new);
+uint32_t checksum32(uint32_t *data, uint32_t size, bool is_new);
 
 #endif

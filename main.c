@@ -107,9 +107,9 @@ bool scsi_inquiry(void) {
 	printf("          ECMA version : %i\n", inquiry.ecma_version);
 	printf("          ANSI version : %i\n", inquiry.ansi_version);
 	printf("  Response data format : %i\n", inquiry.rdt);
-	printf("                Vendor : %.7s\n", inquiry.vendor);
-	printf("               Product : %.15s\n", inquiry.product);
-	printf("              Revision : %.3s\n", inquiry.rev);
+	printf("                Vendor : %.8s\n", inquiry.vendor);
+	printf("               Product : %.16s\n", inquiry.product);
+	printf("              Revision : %.4s\n", inquiry.rev);
 	printf("\n");
 
 	return true;
@@ -247,7 +247,7 @@ bool action_headinfo(void) {
 		fw_header.date[3]);
 	printf("             Vendor ID : 0x%04hX\n", fw_header.vendorId);
 	printf("            Product ID : 0x%04hX\n", fw_header.productId);
-	printf("    Directory Checksum : 0x%08X\n", fw_header.dirCheckSum);
+	printf("    Directory Checksum : 0x%08X - %s\n", fw_header.dirCheckSum, (checksum32((uint32_t *) fw_header.diritem, sizeof(FW_DIR_ENTRY) * 240, true) == fw_header.dirCheckSum) ? "OK" : "Error");
 	printf("   Firmware Descriptor : %.44s\n", fw_header.fwDescriptor);
 	printf("              Producer : %.32s\n", fw_header.producer);
 	printf("           Device Name : %.32s\n", fw_header.deviceName);
@@ -261,8 +261,9 @@ bool action_headinfo(void) {
 	printf("        MTP Product SN : %.32s\n", convert_mtp_serial(fw_header.mtpProductSerialNumber));
 	printf("         MTP Vendor ID : 0x%04hX\n", fw_header.mtpVendorId);
 	printf("        MTP Product ID : 0x%04hX\n", fw_header.mtpProductId);
-	printf("       Header Checksum : 0x%04hX\n", fw_header.headerChecksum);
+	printf("       Header Checksum : 0x%04hX - %s\n", fw_header.headerChecksum, (checksum16((uint16_t *)&fw_header, 510, true) == fw_header.headerChecksum) ? "OK" : "Error");
 	printf("\nCommon Values:\n\n");
+	printf("                 Magic : 0x%04hX - %s\n", fw_header.defaultInf.magic, fw_header.defaultInf.magic == 0xDEAD ? "OK" : "Error");
 	printf(" System Time (in 0.5s) : 0x%08X\n", fw_header.defaultInf.systemtime);
 	printf("              RTC Rate : 0x%04hX\n", fw_header.defaultInf.RTCRate);
 	printf("      Display Contrast : 0x%hu\n", fw_header.defaultInf.displayContrast);
