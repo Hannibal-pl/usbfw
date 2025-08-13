@@ -149,6 +149,7 @@ char * decode_langid(uint8_t langid);
 char * decode_battery(uint8_t battery);
 char * make_filename(char filename[11]);
 void display_spinner(void);
+void display_percent_spinner(uint32_t current, uint32_t max);
 bool test_ram_access(USB_BULK_CONTEXT *uctx);
 bool confirm(void);
 

@@ -50,8 +50,8 @@ void usage(char *binfile) {
                                informations from it.\n");
 	printf("  -S    --sys-info             Fetches firmware sysinfo and prints all\n\
                                informations from it.\n");
-/*	printf("  -r    --read                 Read data from selected logical device starting at\n\
-                               provided start sector and with sectors count.\n");*/
+	printf("  -r    --read                 Read data from selected logical device starting at\n\
+                               provided start sector and with sectors count.\n");
 	printf("  -R    --read-fw              Read data from firmware area, either logical or\n\
                                phisical, starting at provided start sector and\n\
                                with sectors count.\n");
@@ -60,7 +60,7 @@ void usage(char *binfile) {
                                start sector and with sectors count. Note that your\n\
                                device may not allow to such action.\n");
 	printf("  -P    --dump-raw-fw          Dumps main part of firmware into file.\n");
-	printf("  -E    --entry PARAM          Call fw entry command with provided paramerer.\n\
+	printf("  -E    --entry PARAM          Call fw entry command with provided parameter.\n\
                                DANGEROUS!!! confirm with --yes-i-know-what-im-doing.\n");
 	printf("  -h    --help                 Displays this help\n\n");
 	printf("Additional you can use some of following OPTIONS.\n\n");

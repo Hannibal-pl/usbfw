@@ -134,6 +134,74 @@ bool scsi_read_capacity(void) {
 	return true;
 }
 
+bool scsi_read10(void) {
+	bool retval = false;
+
+	if (!open_and_claim(&uctx, app.vid, app.pid)) {
+		return false;
+	}
+
+	// We inted to use standard SCSI command, so there is no need to check for actions device
+
+	// read capacity first to know drive geometry and sector size
+	SCSI_CAPACITY capacity;
+	command_init_read_capacity(&cbw, app.lun);
+	if (command_perform_read_capacity(&cbw, &uctx, &capacity)) {
+		printf("Error: Read capacity command fail.\n");
+		return false;
+	}
+
+	if (capacity.blockSize > SECTOR_SIZE) {
+		printf("Error: Sector size %u grater than max supported %u.\n", capacity.blockSize, SECTOR_SIZE);
+		return false;
+	}
+
+	if (app.lba >= capacity.lastLBA) {
+		printf("Error: LBA should be less than (%u) 0x%08X.\n", capacity.lastLBA, capacity.lastLBA);
+		return false;
+	}
+
+	if (app.lba + app.bc > capacity.lastLBA) {
+		printf("Error: LBA + block count should be less or equal (%u) 0x%08X.\n", capacity.lastLBA, capacity.lastLBA);
+		return false;
+	}
+
+	printf("\nReading from mass storage SCSI device %04X:%04X LUN:%i to file \"%s\",\n", app.vid, app.pid, app.lun, app.filename);
+	printf("starting at sector 0x%08X and ending at sector 0x%08X (0x%08X sectors total).\n\n", app.lba , app.lba + app.bc - 1, app.bc);
+
+	app.file = fopen(app.filename, "w");
+	if (!app.file) {
+		printf("Error: Cannot open output file \"%s\".", app.filename);
+		retval = false;
+		goto exit;
+	}
+
+	printf("Reading mass storage ...       ");
+	uint8_t dumpbuffer[SECTOR_SIZE];
+	for (uint32_t i = app.lba; i < app.lba + app.bc; i++) {
+		command_init_read10one(&cbw, app.lun, i, capacity.blockSize);
+		if (command_perform_read10one(&cbw, &uctx, (uint8_t *)&dumpbuffer)) {
+			printf("Error: Reading mass storage failed at sector %i\n", i);
+			retval = false;
+			goto exit;
+		}
+		fwrite(dumpbuffer, SECTOR_SIZE, 1, app.file);
+
+		if ((i & 0xF) == 0) {
+			display_percent_spinner(i - app.lba, app.bc);
+//			display_spinner();
+		}
+	}
+	printf("\b\b\b\b\bdone.\n\n");
+
+exit:
+	if (app.file) {
+		fclose(app.file);
+		app.file = NULL;
+	}
+	return retval;
+}
+
 bool action_headinfo(void) {
 	bool retval = false;
 	uint32_t first_sector = 0;
@@ -442,8 +510,6 @@ bool action_dumpraw(void) {
 		goto exit;
 	}
 
-	printf("\nDumping ACTIONS firmware header (%s) from device %04X:%04X LUN:%i to file \"%s\".\n\n", app.is_alt_fw ? "alternate" : "main", app.vid, app.pid, app.lun, app.filename);
-
 	app.file = fopen(app.filename, "w");
 	if (!app.file) {
 		printf("Error: Cannot open output file \"%s\".", app.filename);
@@ -451,21 +517,36 @@ bool action_dumpraw(void) {
 		goto exit;
 	}
 
-	if (app.is_alt_fw) {
-		first_sector = search_alternate_fw(&uctx, app.lun, MAX_SEARCH_LBA);
-		// exit if error or not found
-		if ((first_sector == 0xFFFFFFFF) || (first_sector == 0xFFFFFFFF)) {
-			retval = false;
-			goto exit;
-		}
-	}
 
-	size = get_fw_size(&uctx, 0, first_sector);
+	if (app.is_logical) {
+		//main firmware
+		printf("\nDumping ACTIONS main firmware (%s) from device %04X:%04X LUN:%i to file \"%s\".\n\n", app.is_alt_fw ? "alternate" : "main", app.vid, app.pid, app.lun, app.filename);
+
+		if (app.is_alt_fw) {
+			first_sector = search_alternate_fw(&uctx, app.lun, MAX_SEARCH_LBA);
+			// exit if error or not found
+			if ((first_sector == 0xFFFFFFFF) || (first_sector == 0xFFFFFFFF)) {
+				retval = false;
+				goto exit;
+			}
+		}
+
+		size = get_fw_size(&uctx, 0, first_sector);
+
+	} else {
+		//bootrecord firmware
+		printf("\nDumping ACTIONS bootrecord firmware (%s) from device %04X:%04X LUN:%i to file \"%s\".\n\n", app.is_alt_fw ? "alternate" : "main", app.vid, app.pid, app.lun, app.filename);
+
+		if (app.is_alt_fw) {
+			first_sector = 0x200; // alternate begins at 0x40000
+		}
+		size = 0x20; // botrecord has 0x4000 bytes
+	}
 
 	printf("Reading firmware ...  ");
 	uint8_t dumpbuffer[SECTOR_SIZE];
 	for (uint32_t i = first_sector; i < first_sector + size; i++) {
-		command_init_act_readone(&cbw, app.lun, i, 1);
+		command_init_act_readone(&cbw, app.lun, i, app.is_logical);
 		if (command_perform_act_readone(&cbw, &uctx, (uint8_t *)&dumpbuffer)) {
 			printf("Error: Reading firmware failed at sector %i.\n", i);
 			retval = false;
@@ -544,6 +625,9 @@ int main (int argc, char *argv[]) {
 			break;
 		case APPCMD_CAPACITY:
 			retval = scsi_read_capacity() ? 0 : 1;
+			break;
+		case APPCMD_READ:
+			retval = scsi_read10() ? 0 : 1;
 			break;
 		case APPCMD_HEADINFO:
 			retval = action_headinfo() ? 0 : 1;

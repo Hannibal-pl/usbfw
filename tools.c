@@ -196,6 +196,26 @@ void display_spinner(void) {
 	}
 }
 
+void display_percent_spinner(uint32_t current, uint32_t max) {
+	char spinner[4] = "|/-\\";
+	static int i = 0;
+	uint32_t percent = 0;
+
+	// avoid strange values
+	if (current > max) {
+		percent = 0;
+	} else {
+		percent = ((uint64_t)current) * 100 / max;
+	}
+
+	// place for digits
+	printf("\b\b\b\b\b%02u%% %c", percent, spinner[i++]);
+	fflush(stdout);
+	if (i > 3) {
+		i = 0;
+	}
+}
+
 
 bool confirm(void) {
 	if (!app.is_yesiknow) {

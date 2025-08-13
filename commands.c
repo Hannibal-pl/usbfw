@@ -150,7 +150,7 @@ int command_perform_read_capacity(CBW *cbw, USB_BULK_CONTEXT *uctx, SCSI_CAPACIT
 
 void command_init_read10one(CBW *cbw, uint8_t lun, uint32_t lba, uint32_t sector_size) {
 	command_init(cbw);
-	cbw->bCBWLUN = 0;
+	cbw->bCBWLUN = lun;
 	cbw->dCBWDataTransferLength = sector_size;
 	cbw->CBWCB[SCSI_PACKET_CMD] = SCSI_CMD_READ10;
 	cbw->CBWCB[SCSI_PACKET_LUN] = lun;
