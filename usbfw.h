@@ -14,6 +14,7 @@
 #define		SCSI_CMD_ACTF_ENTRY	0x20
 #define		SCSI_CMD_READ_CAPACITY	0x25
 #define		SCSI_CMD_READ10		0x28
+#define		SCSI_CMD_WRITE10	0x2A
 #define		SCSI_CMD_ACT_INIT	0xCB
 #define		SCSI_CMD_ACT_IDENTIFY	0xCC
 
@@ -35,7 +36,8 @@
 #define		USB_TIMEOUT		1000		// 1s
 #define		SECTOR_SIZE		512
 #define		SYSINFO_SIZE		192
-#define		DEFAULT_OUT_FILENAME	"dump.bin"
+#define		DEFAULT_OUT_FILENAME	"read_out.bin"
+#define		DEFAULT_IN_FILENAME	"write_in.bin"
 #define		MAX_SEARCH_LBA		65535		// max sector for alternate firmware search
 
 #ifdef DEBUG
@@ -76,8 +78,10 @@ typedef struct {
 
 typedef struct {
 	APP_COMMAND			cmd;		// command to execute
-	char				*filename;	// output filename
-	FILE				*file;		// output file
+	char				*ofilename;	// output filename
+	FILE				*ofile;		// output file
+	char				*ifilename;	// input filename
+	FILE				*ifile;		// input file
 	bool				is_dev;		// vendor and product ID are set
 	uint16_t			vid;		// vendor ID
 	uint16_t			pid;		// product ID
@@ -105,6 +109,8 @@ void command_init_read_capacity(CBW *cbw, uint8_t lun);
 int command_perform_read_capacity(CBW *cbw, USB_BULK_CONTEXT *uctx, SCSI_CAPACITY *capacity);
 void command_init_read10one(CBW *cbw, uint8_t lun, uint32_t lba, uint32_t sector_size);
 int command_perform_read10one(CBW *cbw, USB_BULK_CONTEXT *uctx, uint8_t *buf);
+void command_init_write10one(CBW *cbw, uint8_t lun, uint32_t lba, uint32_t sector_size);
+int command_perform_write10one(CBW *cbw, USB_BULK_CONTEXT *uctx, uint8_t *buf);
 
 void command_init_act_identify(CBW *cbw, uint8_t lun);
 int command_perform_act_identify(CBW *cbw, USB_BULK_CONTEXT *uctx, ACTIONSUSBD *actid);

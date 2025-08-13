@@ -42,7 +42,6 @@ void command_init(CBW *cbw) {
 	memcpy(cbw->dCBWSignature, "USBC", 4);
 	cbw->dCBWTag = ++tag;
 	cbw->bCBWCBLength = 11;				// size of SCSI command
-	cbw->mCBWFlags = LIBUSB_ENDPOINT_IN;
 }
 
 
@@ -50,10 +49,6 @@ int command_perform_generic_read(CBW *cbw, USB_BULK_CONTEXT *uctx, unsigned char
 	enum libusb_error usb_error = 0;
 	CSW csw;
 	int transferred;
-
-//	libusb_reset_device(uctx->handle);
-//	libusb_clear_halt(uctx->handle, uctx->endpoint_out);
-//	libusb_clear_halt(uctx->handle, uctx->endpoint_in);
 
 	dbg_printf("Start command 0x%02hhX - tag: %u\n", cbw->CBWCB[0], cbw->dCBWTag);
 
@@ -106,11 +101,53 @@ int command_perform_generic_read(CBW *cbw, USB_BULK_CONTEXT *uctx, unsigned char
 }
 
 
+int command_perform_generic_write(CBW *cbw, USB_BULK_CONTEXT *uctx, unsigned char *data) {
+	enum libusb_error usb_error = 0;
+	CSW csw;
+	int transferred;
+
+	dbg_printf("Start command 0x%02hhX - tag: %u\n", cbw->CBWCB[0], cbw->dCBWTag);
+
+	// send CBW
+	usb_error = libusb_bulk_transfer(uctx->handle, uctx->endpoint_out, (unsigned char *)cbw, sizeof(CBW), &transferred, USB_TIMEOUT);
+	if (usb_error) {
+		dbg_printf("USB error at bulk out (CBW): %s\n", libusb_strerror(usb_error));
+		return usb_error;
+	} else if (transferred != sizeof(CBW)) {
+		dbg_printf("Warning - not all data transferred at out endpoint, %i instead of %i\n", transferred, sizeof(CBW));
+	}
+
+	// send requested data if present
+	if (cbw->dCBWDataTransferLength > 0) {
+		usb_error = libusb_bulk_transfer(uctx->handle, uctx->endpoint_out, data, cbw->dCBWDataTransferLength, &transferred, USB_TIMEOUT);
+		if (usb_error) {
+			dbg_printf("USB error at bulk out (data): %s\n", libusb_strerror(usb_error));
+			return usb_error;
+		} else if (transferred != cbw->dCBWDataTransferLength) {
+			dbg_printf("Warning - not all data transferred at out endpoint, %i instead of %i\n", transferred, cbw->dCBWDataTransferLength);
+		}
+	}
+
+	// recieve CSW
+	usb_error = libusb_bulk_transfer(uctx->handle, uctx->endpoint_in, (unsigned char *)&csw, sizeof(CSW), &transferred, USB_TIMEOUT);
+	if (usb_error) {
+		dbg_printf("USB error at bulk in (CSW): %s\n", libusb_strerror(usb_error));
+		return usb_error;
+	} else if (transferred != sizeof(CSW)) {
+		dbg_printf("Warning - not all data transferred at in endpoint, %i instead of %i\n", transferred, sizeof(CSW));
+	}
+
+	// return what CSW check do
+	return check_csw(cbw, &csw);
+}
+
+
 
 // SCSI INQURY command
 
 void command_init_inquiry(CBW *cbw, uint8_t lun) {
 	command_init(cbw);
+	cbw->mCBWFlags = LIBUSB_ENDPOINT_IN;
 	cbw->bCBWLUN = lun;
 	cbw->dCBWDataTransferLength = sizeof(SCSI_INQUIRY);
 	cbw->CBWCB[SCSI_PACKET_CMD] = SCSI_CMD_INQUIRY;
@@ -127,6 +164,7 @@ int command_perform_inquiry(CBW *cbw, USB_BULK_CONTEXT *uctx, SCSI_INQUIRY *inqu
 
 void command_init_read_capacity(CBW *cbw, uint8_t lun) {
 	command_init(cbw);
+	cbw->mCBWFlags = LIBUSB_ENDPOINT_IN;
 	cbw->bCBWLUN = lun;
 	cbw->dCBWDataTransferLength = sizeof(SCSI_CAPACITY);
 	cbw->CBWCB[SCSI_PACKET_CMD] = SCSI_CMD_READ_CAPACITY;
@@ -150,6 +188,7 @@ int command_perform_read_capacity(CBW *cbw, USB_BULK_CONTEXT *uctx, SCSI_CAPACIT
 
 void command_init_read10one(CBW *cbw, uint8_t lun, uint32_t lba, uint32_t sector_size) {
 	command_init(cbw);
+	cbw->mCBWFlags = LIBUSB_ENDPOINT_IN;
 	cbw->bCBWLUN = lun;
 	cbw->dCBWDataTransferLength = sector_size;
 	cbw->CBWCB[SCSI_PACKET_CMD] = SCSI_CMD_READ10;
@@ -167,6 +206,28 @@ int command_perform_read10one(CBW *cbw, USB_BULK_CONTEXT *uctx, uint8_t *buf) {
 	return command_perform_generic_read(cbw, uctx, (unsigned char *)buf);
 }
 
+// SCSI WRITE10 (one sector) command
+
+void command_init_write10one(CBW *cbw, uint8_t lun, uint32_t lba, uint32_t sector_size) {
+	command_init(cbw);
+	cbw->mCBWFlags = LIBUSB_ENDPOINT_OUT;
+	cbw->bCBWLUN = lun;
+	cbw->dCBWDataTransferLength = sector_size;
+	cbw->CBWCB[SCSI_PACKET_CMD] = SCSI_CMD_WRITE10;
+	cbw->CBWCB[SCSI_PACKET_LUN] = lun;
+	// big endian
+	cbw->CBWCB[SCSI_PACKET_LBA + 0] = (lba >> 24) & 0xFF;
+	cbw->CBWCB[SCSI_PACKET_LBA + 1] = (lba >> 16) & 0xFF;
+	cbw->CBWCB[SCSI_PACKET_LBA + 2] = (lba >>  8) & 0xFF;
+	cbw->CBWCB[SCSI_PACKET_LBA + 3] = (lba >>  0) & 0xFF;
+	cbw->CBWCB[SCSI_PACKET_LENGTH + 0] = 0;
+	cbw->CBWCB[SCSI_PACKET_LENGTH + 1] = 1;
+}
+
+int command_perform_write10one(CBW *cbw, USB_BULK_CONTEXT *uctx, uint8_t *buf) {
+	return command_perform_generic_read(cbw, uctx, (unsigned char *)buf);
+}
+
 
 
 
@@ -174,6 +235,7 @@ int command_perform_read10one(CBW *cbw, USB_BULK_CONTEXT *uctx, uint8_t *buf) {
 
 void command_init_act_identify(CBW *cbw, uint8_t lun) {
 	command_init(cbw);
+	cbw->mCBWFlags = LIBUSB_ENDPOINT_IN;
 	cbw->bCBWLUN = lun;
 	cbw->dCBWDataTransferLength = sizeof(ACTIONSUSBD);
 	cbw->CBWCB[SCSI_PACKET_CMD] = SCSI_CMD_ACT_IDENTIFY;
@@ -187,6 +249,7 @@ int command_perform_act_identify(CBW *cbw, USB_BULK_CONTEXT *uctx, ACTIONSUSBD *
 
 void command_init_act_init(CBW *cbw) {
 	command_init(cbw);
+	cbw->mCBWFlags = LIBUSB_ENDPOINT_IN;
 	cbw->bCBWLUN = 0;
 	cbw->dCBWDataTransferLength = sizeof(uint8_t);
 	cbw->CBWCB[SCSI_PACKET_CMD] = SCSI_CMD_ACT_INIT;
@@ -200,6 +263,7 @@ int command_perform_act_init(CBW *cbw, USB_BULK_CONTEXT *uctx, uint8_t *buf) {
 
 void command_init_act_detach(CBW *cbw) {
 	command_init(cbw);
+	cbw->mCBWFlags = LIBUSB_ENDPOINT_IN;
 	cbw->bCBWLUN = 0;
 	cbw->dCBWDataTransferLength = 0;
 	cbw->CBWCB[SCSI_PACKET_CMD] = SCSI_CMD_ACTF_DETACH;
@@ -213,6 +277,7 @@ int command_perform_act_detach(CBW *cbw, USB_BULK_CONTEXT *uctx) {
 
 void command_init_act_readone(CBW *cbw, uint8_t lun, uint32_t lba, bool is_log) {
 	command_init(cbw);
+	cbw->mCBWFlags = LIBUSB_ENDPOINT_IN;
 	cbw->bCBWLUN = lun;
 	cbw->dCBWDataTransferLength = SECTOR_SIZE;
 	cbw->CBWCB[SCSI_PACKET_CMD] = is_log ? SCSI_CMD_ACTF_NAND_LOG : SCSI_CMD_ACTF_NAND_PHY;
@@ -237,6 +302,7 @@ int command_perform_act_readone(CBW *cbw, USB_BULK_CONTEXT *uctx, uint8_t *buf) 
 void command_init_act_read_ram(CBW *cbw, uint16_t sector, uint16_t length) {
 	//max sector is 0x800 and max size 0x200
 	command_init(cbw);
+	cbw->mCBWFlags = LIBUSB_ENDPOINT_IN;
 	cbw->bCBWLUN = 0;
 	cbw->dCBWDataTransferLength = length;
 	cbw->CBWCB[SCSI_PACKET_CMD] = SCSI_CMD_ACTF_RAM;
@@ -259,6 +325,7 @@ int command_perform_act_read_ram(CBW *cbw, USB_BULK_CONTEXT *uctx, uint8_t *buf)
 
 void command_init_act_entry(CBW *cbw, uint16_t param) {
 	command_init(cbw);
+	cbw->mCBWFlags = LIBUSB_ENDPOINT_IN;
 	cbw->bCBWLUN = 0;
 	cbw->dCBWDataTransferLength = 0;
 	cbw->CBWCB[SCSI_PACKET_CMD] = SCSI_CMD_ACTF_ENTRY;

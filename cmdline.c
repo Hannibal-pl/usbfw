@@ -185,7 +185,8 @@ void parseparams(int argc, char *argv[]) {
 					printf("Error: You must provide output filename.\n\n");
 					exit(-1);
 				}
-				app.filename = optarg;
+				app.ofilename = optarg;
+				app.ifilename = optarg;
 				break;
 			case 'd':
 				if (optarg == NULL) {

@@ -209,7 +209,7 @@ void display_percent_spinner(uint32_t current, uint32_t max) {
 	}
 
 	// place for digits
-	printf("\b\b\b\b\b%02u%% %c", percent, spinner[i++]);
+	printf("\b\b\b\b\b%2u%% %c", percent, spinner[i++]);
 	fflush(stdout);
 	if (i > 3) {
 		i = 0;

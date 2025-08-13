@@ -31,7 +31,7 @@ uint32_t search_alternate_fw(USB_BULK_CONTEXT *uctx, uint8_t lun, uint32_t max_l
 	FW_HEADER fw_header;
 	CBW cbw;
 
-	printf("Searching for alternate header...  ");
+	printf("Searching for alternate header...      ");
 	for (uint32_t i = 8; i < max_lba; i++) {
 		command_init_act_readone(&cbw, lun, i, true);
 		if (command_perform_act_readone(&cbw, uctx, (uint8_t *)&fw_header)) {
@@ -40,16 +40,16 @@ uint32_t search_alternate_fw(USB_BULK_CONTEXT *uctx, uint8_t lun, uint32_t max_l
 		}
 		// header found
 		if (fw_header.magic == 0x0FF0AA55) {
-			printf("\bfound at sector 0x%08X\n\n", i);
+			printf("\b\b\b\b\bfound at sector 0x%08X\n\n", i);
 			return i;
 		}
 
 		if ((i & 0xF) == 0) {
-			display_spinner();
+			display_percent_spinner(i, max_lba);
 		}
 	}
 
-	printf("\bnot found.\n\n");
+	printf("\b\b\b\b\bnot found.\n\n");
 	return 0;
 }
 

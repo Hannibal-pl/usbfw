@@ -9,8 +9,10 @@
 #include "usbfw.h"
 
 APP_CONTEXT app = {	.cmd		= APPCMD_NONE,
-			.filename	= DEFAULT_OUT_FILENAME,
-			.file		= NULL,
+			.ofilename	= DEFAULT_OUT_FILENAME,
+			.ofile		= NULL,
+			.ifilename	= DEFAULT_IN_FILENAME,
+			.ifile		= NULL,
 			.is_dev		= false,
 			.vid		= 0,
 			.pid		= 0,
@@ -166,12 +168,12 @@ bool scsi_read10(void) {
 		return false;
 	}
 
-	printf("\nReading from mass storage SCSI device %04X:%04X LUN:%i to file \"%s\",\n", app.vid, app.pid, app.lun, app.filename);
+	printf("\nReading from mass storage SCSI device %04X:%04X LUN:%i to file \"%s\",\n", app.vid, app.pid, app.lun, app.ofilename);
 	printf("starting at sector 0x%08X and ending at sector 0x%08X (0x%08X sectors total).\n\n", app.lba , app.lba + app.bc - 1, app.bc);
 
-	app.file = fopen(app.filename, "w");
-	if (!app.file) {
-		printf("Error: Cannot open output file \"%s\".", app.filename);
+	app.ofile = fopen(app.ofilename, "w");
+	if (!app.ofile) {
+		printf("Error: Cannot open output file \"%s\".", app.ofilename);
 		retval = false;
 		goto exit;
 	}
@@ -185,19 +187,18 @@ bool scsi_read10(void) {
 			retval = false;
 			goto exit;
 		}
-		fwrite(dumpbuffer, SECTOR_SIZE, 1, app.file);
+		fwrite(dumpbuffer, SECTOR_SIZE, 1, app.ofile);
 
 		if ((i & 0xF) == 0) {
 			display_percent_spinner(i - app.lba, app.bc);
-//			display_spinner();
 		}
 	}
 	printf("\b\b\b\b\bdone.\n\n");
 
 exit:
-	if (app.file) {
-		fclose(app.file);
-		app.file = NULL;
+	if (app.ofile) {
+		fclose(app.ofile);
+		app.ofile = NULL;
 	}
 	return retval;
 }
@@ -375,17 +376,17 @@ bool action_readfw(void) {
 		goto exit;
 	}
 
-	printf("\nReading ACTIONS firmware %s area from device %04X:%04X LUN:%i to file \"%s\",\n", app.is_logical ? "logical" : "physical", app.vid, app.pid, app.lun, app.filename);
+	printf("\nReading ACTIONS firmware %s area from device %04X:%04X LUN:%i to file \"%s\",\n", app.is_logical ? "logical" : "physical", app.vid, app.pid, app.lun, app.ofilename);
 	printf("starting at sector 0x%08X and ending at sector 0x%08X (0x%08X sectors total).\n\n", app.lba , app.lba + app.bc - 1, app.bc);
 
-	app.file = fopen(app.filename, "w");
-	if (!app.file) {
-		printf("Error: Cannot open output file \"%s\".", app.filename);
+	app.ofile = fopen(app.ofilename, "w");
+	if (!app.ofile) {
+		printf("Error: Cannot open output file \"%s\".", app.ofilename);
 		retval = false;
 		goto exit;
 	}
 
-	printf("Reading firmware ...  ");
+	printf("Reading firmware ...      ");
 	uint8_t dumpbuffer[SECTOR_SIZE];
 	for (uint32_t i = app.lba; i < app.lba + app.bc; i++) {
 		command_init_act_readone(&cbw, app.lun, i, app.is_logical);
@@ -394,19 +395,19 @@ bool action_readfw(void) {
 			retval = false;
 			goto exit;
 		}
-		fwrite(dumpbuffer, SECTOR_SIZE, 1, app.file);
+		fwrite(dumpbuffer, SECTOR_SIZE, 1, app.ofile);
 
 		if ((i & 0xF) == 0) {
-			display_spinner();
+			display_percent_spinner(i - app.lba, app.bc);
 		}
 	}
-	printf("\bdone.\n\n");
+	printf("\b\b\b\b\bdone.\n\n");
 
 
 exit:
-	if (app.file) {
-		fclose(app.file);
-		app.file = NULL;
+	if (app.ofile) {
+		fclose(app.ofile);
+		app.ofile = NULL;
 	}
 
 	detach_device(&uctx, app.is_detach);
@@ -454,16 +455,16 @@ bool action_readram(void) {
 		goto exit;
 	}
 
-	printf("\nReading ACTIONS device %04X:%04X RAM to file \"%s\",\n", app.vid, app.pid, app.filename);
+	printf("\nReading ACTIONS device %04X:%04X RAM to file \"%s\",\n", app.vid, app.pid, app.ofilename);
 	printf("starting at sector 0x%08X and ending at sector 0x%08X (0x%08X sectors total).\n\n", app.lba, app.lba + app.bc - 1, app.bc);
 
 	if (!test_ram_access(&uctx)) {
 		printf("Warning: Your device probably doesn't support this feature. Expect garbage output.\n\n");
 	}
 
-	app.file = fopen(app.filename, "w");
-	if (!app.file) {
-		printf("Error: Cannot open output file \"%s\".", app.filename);
+	app.ofile = fopen(app.ofilename, "w");
+	if (!app.ofile) {
+		printf("Error: Cannot open output file \"%s\".", app.ofilename);
 		retval = false;
 		goto exit;
 	}
@@ -477,7 +478,7 @@ bool action_readram(void) {
 			retval = false;
 			goto exit;
 		}
-		fwrite(dumpbuffer, SECTOR_SIZE, 1, app.file);
+		fwrite(dumpbuffer, SECTOR_SIZE, 1, app.ofile);
 
 		if ((i & 0xF) == 0) {
 			display_spinner();
@@ -487,9 +488,9 @@ bool action_readram(void) {
 
 
 exit:
-	if (app.file) {
-		fclose(app.file);
-		app.file = NULL;
+	if (app.ofile) {
+		fclose(app.ofile);
+		app.ofile = NULL;
 	}
 
 	detach_device(&uctx, app.is_detach);
@@ -510,9 +511,9 @@ bool action_dumpraw(void) {
 		goto exit;
 	}
 
-	app.file = fopen(app.filename, "w");
-	if (!app.file) {
-		printf("Error: Cannot open output file \"%s\".", app.filename);
+	app.ofile = fopen(app.ofilename, "w");
+	if (!app.ofile) {
+		printf("Error: Cannot open output file \"%s\".", app.ofilename);
 		retval = false;
 		goto exit;
 	}
@@ -520,7 +521,7 @@ bool action_dumpraw(void) {
 
 	if (app.is_logical) {
 		//main firmware
-		printf("\nDumping ACTIONS main firmware (%s) from device %04X:%04X LUN:%i to file \"%s\".\n\n", app.is_alt_fw ? "alternate" : "main", app.vid, app.pid, app.lun, app.filename);
+		printf("\nDumping ACTIONS main firmware (%s) from device %04X:%04X LUN:%i to file \"%s\".\n\n", app.is_alt_fw ? "alternate" : "main", app.vid, app.pid, app.lun, app.ofilename);
 
 		if (app.is_alt_fw) {
 			first_sector = search_alternate_fw(&uctx, app.lun, MAX_SEARCH_LBA);
@@ -535,7 +536,7 @@ bool action_dumpraw(void) {
 
 	} else {
 		//bootrecord firmware
-		printf("\nDumping ACTIONS bootrecord firmware (%s) from device %04X:%04X LUN:%i to file \"%s\".\n\n", app.is_alt_fw ? "alternate" : "main", app.vid, app.pid, app.lun, app.filename);
+		printf("\nDumping ACTIONS bootrecord firmware (%s) from device %04X:%04X LUN:%i to file \"%s\".\n\n", app.is_alt_fw ? "alternate" : "main", app.vid, app.pid, app.lun, app.ofilename);
 
 		if (app.is_alt_fw) {
 			first_sector = 0x200; // alternate begins at 0x40000
@@ -543,7 +544,7 @@ bool action_dumpraw(void) {
 		size = 0x20; // botrecord has 0x4000 bytes
 	}
 
-	printf("Reading firmware ...  ");
+	printf("Reading firmware ...      ");
 	uint8_t dumpbuffer[SECTOR_SIZE];
 	for (uint32_t i = first_sector; i < first_sector + size; i++) {
 		command_init_act_readone(&cbw, app.lun, i, app.is_logical);
@@ -552,18 +553,18 @@ bool action_dumpraw(void) {
 			retval = false;
 			goto exit;
 		}
-		fwrite(dumpbuffer, SECTOR_SIZE, 1, app.file);
+		fwrite(dumpbuffer, SECTOR_SIZE, 1, app.ofile);
 
 		if ((i & 0xF) == 0) {
-			display_spinner();
+			display_percent_spinner(i - first_sector, size);
 		}
 	}
-	printf("\bdone.\n\n");
+	printf("\b\b\b\b\bdone.\n\n");
 
 exit:
-	if (app.file) {
-		fclose(app.file);
-		app.file = NULL;
+	if (app.ofile) {
+		fclose(app.ofile);
+		app.ofile = NULL;
 	}
 
 	detach_device(&uctx, app.is_detach);
