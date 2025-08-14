@@ -24,6 +24,10 @@
 #define		SCSI_PACKET_LBA		2
 #define		SCSI_PACKET_LENGTH	7
 
+// AFI download address
+#define		AFI_DADDR_B		0x00000006
+#define		AFI_DADDR_I		0x00000011
+
 // colors
 #define		COLOR_DEFAULT		"\033[0m"
 #define		COLOR_RED		"\033[31m"
@@ -62,6 +66,7 @@ typedef enum {
 	APPCMD_TEST_RAMACC,
 	APPCMD_READ_RAM,
 	APPCMD_DUMP_RAW,
+	APPCMD_DUMP_AFI,
 	APPCMD_ENTRY
 } APP_COMMAND;
 
@@ -101,6 +106,8 @@ typedef struct {
 
 //afi.c
 FILE * afi_new_file(char *filename);
+void afi_add_whole(FILE *fafi, FW_AFI_DIR_ENTRY *afi_entry, uint8_t* data);
+void afi_add_appended(FILE *fafi, FW_AFI_DIR_ENTRY *afi_entry);
 
 //cmdline.c
 void parseparams(int argc, char *argv[]);

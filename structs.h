@@ -190,7 +190,7 @@ typedef struct {
 } FW_AFI_HEADER;
 
 typedef struct {
-	uint32_t		jump[4];		// jump code
+	uint32_t		jump;			// jump code
 	uint8_t			magic[4];		// "BREC"
 	uint8_t			type[4];
 	uint16_t		version;

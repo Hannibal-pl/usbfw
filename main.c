@@ -656,6 +656,135 @@ exit:
 	return retval;
 }
 
+bool action_dumpafi(void) {
+	bool retval = false;
+	uint32_t first_sector = 0;
+	uint32_t size = 0;
+
+	if (!open_and_claim(&uctx, app.vid, app.pid)) {
+		return false;
+	}
+
+	if (!init_act(&uctx)) {
+		retval = false;
+		goto exit;
+	}
+
+	app.ofile = afi_new_file(app.ofilename);
+	if (!app.ofile) {
+		printf("Error: Cannot open output file \"%s\".", app.ofilename);
+		retval = false;
+		goto exit;
+	}
+
+	printf("\nDumping ACTIONS whole firmware (%s) from device %04X:%04X LUN:%i to AFI file \"%s\".\n\n", app.is_alt_fw ? "alternate" : "main", app.vid, app.pid, app.lun, app.ofilename);
+
+	// bootrecord firmware
+	if (app.is_alt_fw) {
+		first_sector = 0x200; // alternate begins at 0x40000
+	} else {
+		first_sector = 0; // alternate begins at 0x40000
+	}
+	size = 0x20; // botrecord has 0x4000 bytes
+
+	printf("Reading bootrecord firmware ...      ");
+	FW_BREC fw_brec;
+	for (uint32_t i = first_sector; i < first_sector + size; i++) {
+		command_init_act_readone(&cbw, app.lun, i, false);
+		if (command_perform_act_readone(&cbw, &uctx, (uint8_t *)&fw_brec + ((i - first_sector) * SECTOR_SIZE))) {
+			printf("Error: Reading firmware failed at sector %i.\n", i);
+			retval = false;
+			goto exit;
+		}
+
+		if ((i & 0xF) == 0) {
+			display_percent_spinner(i - first_sector, size);
+		}
+	}
+	printf("\b\b\b\b\bdone.\n\n");
+
+	// put bootrecord in afi container as whole file
+	FW_AFI_DIR_ENTRY dir_entry;
+	memset(&dir_entry, 0, sizeof(FW_AFI_DIR_ENTRY));
+	memcpy(dir_entry.filename, "BREC    BIN", 11);
+	memcpy(&dir_entry.filename[4], fw_brec.type, 4);
+	dir_entry.type = 'B';
+	dir_entry.downloadAddr = AFI_DADDR_B;
+	dir_entry.length = sizeof(FW_BREC);
+	afi_add_whole(app.ofile, &dir_entry, (uint8_t *)&fw_brec);
+
+	//main firmware
+	if (app.is_alt_fw) {
+		first_sector = search_alternate_fw(&uctx, app.lun, MAX_SEARCH_LBA);
+		// exit if error or not found
+		if ((first_sector == 0xFFFFFFFF) || (first_sector == 0xFFFFFFFF)) {
+			retval = false;
+			goto exit;
+		}
+	} else {
+		first_sector = 0;
+	}
+	size = get_fw_size(&uctx, 0, first_sector);
+
+
+	// prepare out file for data
+	fseek(app.ofile, 0, SEEK_END);
+	uint32_t checksum = 0;
+
+	printf("Reading main firmware ...      ");
+	uint8_t dumpbuffer[SECTOR_SIZE];
+	for (uint32_t i = first_sector; i < first_sector + size; i++) {
+		command_init_act_readone(&cbw, app.lun, i, true);
+		if (command_perform_act_readone(&cbw, &uctx, (uint8_t *)&dumpbuffer)) {
+			printf("Error: Reading firmware failed at sector %i.\n", i);
+			retval = false;
+			goto exit;
+		}
+		fwrite(dumpbuffer, SECTOR_SIZE, 1, app.ofile);
+		checksum += checksum32((uint32_t *)dumpbuffer, SECTOR_SIZE, true);
+
+		if ((i & 0xF) == 0) {
+			display_percent_spinner(i - first_sector, size);
+		}
+	}
+	printf("\b\b\b\b\bdone.\n\n");
+
+	// put main firmware in afi container as previusly appended
+	memset(&dir_entry, 0, sizeof(FW_AFI_DIR_ENTRY));
+	memcpy(dir_entry.filename, "FWIMAGE FW ", 11);
+	dir_entry.type = 'I';
+	dir_entry.downloadAddr = AFI_DADDR_I;
+	dir_entry.length = size * SECTOR_SIZE;
+	dir_entry.checksum = checksum;
+	afi_add_appended(app.ofile, &dir_entry);
+
+	// sysinfo
+
+	FW_SYSINFO sysinfo;
+	if (!get_fw_sysinfo(&uctx, &sysinfo)) {
+		retval = false;
+		goto exit;
+	}
+
+	// put bootrecord in afi container as whole file
+	memset(&dir_entry, 0, sizeof(FW_AFI_DIR_ENTRY));
+	memcpy(dir_entry.filename, "SYSINFO BIN", 11);
+	dir_entry.type = ' ';
+	dir_entry.length = sizeof(FW_SYSINFO);
+	afi_add_whole(app.ofile, &dir_entry, (uint8_t *)&sysinfo);
+
+	printf("AFI file ready.\n\n");
+
+exit:
+	if (app.ofile) {
+		fclose(app.ofile);
+		app.ofile = NULL;
+	}
+
+	detach_device(&uctx, app.is_detach);
+	return retval;
+}
+
 bool action_entry(void) {
 	bool retval = false;
 
@@ -735,6 +864,9 @@ int main (int argc, char *argv[]) {
 			break;
 		case APPCMD_DUMP_RAW:
 			retval = action_dumpraw() ? 0 : 1;
+			break;
+		case APPCMD_DUMP_AFI:
+			retval = action_dumpafi() ? 0 : 1;
 			break;
 		case APPCMD_ENTRY:
 			retval = action_entry() ? 0 : 1;

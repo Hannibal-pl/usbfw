@@ -19,9 +19,9 @@ const struct option longopt[] = {
 	{"test-ram-access", 0, NULL, 'T'},
 	{"read-ram", 0, NULL, 'M'},
 	{"dump-raw-fw", 0, NULL, 'P'},
+	{"dump-afi-fw", 0, NULL, 'A'},
 	{"entry", 1, NULL, 'e'},
 	{"help", 0, NULL, 'h'},
-//	{"dump-afi-fw", 0, NULL, 'a'},
 
 	// options
 	{"file", 1, NULL, 'f'},
@@ -64,6 +64,7 @@ void usage(char *binfile) {
                                start sector and with sectors count. Note that your\n\
                                device may not allow to such action.\n");
 	printf("  -P    --dump-raw-fw          Dumps main part of firmware into file.\n");
+	printf("  -A    --dump-afi-fw          Dumps whole firmware into AFI container file.\n");
 	printf("  -E    --entry PARAM          Call fw entry command with provided parameter.\n\
                                DANGEROUS!!! confirm with --yes-i-know-what-im-doing.\n");
 	printf("  -h    --help                 Displays this help\n\n");
@@ -92,7 +93,7 @@ void parseparams(int argc, char *argv[]) {
 	int opt;
 
 	while (true) {
-		opt = getopt_long(argc, argv, "f:ed:l:L:c:iCISrwRTMPE:Opo:sDah?", longopt, NULL);
+		opt = getopt_long(argc, argv, "f:ed:l:L:c:iCISrwRTMPAE:Opo:sDah?", longopt, NULL);
 		if (opt == -1) {
 			break;
 		}
@@ -175,6 +176,13 @@ void parseparams(int argc, char *argv[]) {
 					goto help;
 				}
 				app.cmd = APPCMD_DUMP_RAW;
+				break;
+			case 'A':
+				if (app.cmd != APPCMD_NONE) {
+					printf("Error: You have already select command.\n\n");
+					goto help;
+				}
+				app.cmd = APPCMD_DUMP_AFI;
 				break;
 			case 'E':
 				if (app.cmd != APPCMD_NONE) {
