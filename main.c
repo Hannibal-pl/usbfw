@@ -13,6 +13,7 @@ APP_CONTEXT app = {	.cmd		= APPCMD_NONE,
 			.ofile		= NULL,
 			.ifilename	= DEFAULT_IN_FILENAME,
 			.ifile		= NULL,
+			.offset		= 0,
 			.is_dev		= false,
 			.vid		= 0,
 			.pid		= 0,
@@ -23,7 +24,7 @@ APP_CONTEXT app = {	.cmd		= APPCMD_NONE,
 			.is_showdir	= false,
 			.is_detach	= false,
 			.is_alt_fw	= false,
-			.is_alt_fw	= false,
+			.is_yesiknow	= false,
 			.entry_param	= 0
 };
 
@@ -199,6 +200,89 @@ exit:
 	if (app.ofile) {
 		fclose(app.ofile);
 		app.ofile = NULL;
+	}
+	return retval;
+}
+
+bool scsi_write10(void) {
+	bool retval = false;
+
+	if (!open_and_claim(&uctx, app.vid, app.pid)) {
+		return false;
+	}
+
+	// We inted to use standard SCSI command, so there is no need to check for actions device
+
+	// read capacity first to know drive geometry and sector size
+	SCSI_CAPACITY capacity;
+	command_init_read_capacity(&cbw, app.lun);
+	if (command_perform_read_capacity(&cbw, &uctx, &capacity)) {
+		printf("Error: Read capacity command fail.\n");
+		return false;
+	}
+
+	if (capacity.blockSize > SECTOR_SIZE) {
+		printf("Error: Sector size %u grater than max supported %u.\n", capacity.blockSize, SECTOR_SIZE);
+		return false;
+	}
+
+	if (app.lba >= capacity.lastLBA) {
+		printf("Error: LBA should be less than (%u) 0x%08X.\n", capacity.lastLBA, capacity.lastLBA);
+		return false;
+	}
+
+	if (app.lba + app.bc > capacity.lastLBA) {
+		printf("Error: LBA + block count should be less or equal (%u) 0x%08X.\n", capacity.lastLBA, capacity.lastLBA);
+		return false;
+	}
+
+	app.ifile = fopen(app.ofilename, "r");
+	if (!app.ifile) {
+		printf("Error: Cannot open output file \"%s\".", app.ifilename);
+		retval = false;
+		goto exit;
+	}
+
+	fseek(app.ifile, 0, SEEK_END);
+	uint32_t oflen = ftell(app.ifile);
+
+	if (app.offset > oflen) {
+		printf("Error: Provided offset is greater than input file length.");
+		retval = false;
+		goto exit;
+	}
+	fseek(app.ifile, app.offset, SEEK_SET);
+
+	if ((oflen - app.offset) < (app.bc * capacity.blockSize)) {
+		printf("Error: Not enough data in input file.");
+		retval = false;
+		goto exit;
+	}
+
+	printf("\nWriting to mass storage SCSI device %04X:%04X LUN:%i from file \"%s\",\n", app.vid, app.pid, app.lun, app.ofilename);
+	printf("starting at sector 0x%08X and ending at sector 0x%08X (0x%08X sectors total).\n\n", app.lba , app.lba + app.bc - 1, app.bc);
+
+	printf("Writing mass storage ...       ");
+	uint8_t inbuffer[SECTOR_SIZE];
+	for (uint32_t i = app.lba; i < app.lba + app.bc; i++) {
+		fread(inbuffer, SECTOR_SIZE, 1, app.ifile);
+		command_init_write10one(&cbw, app.lun, i, capacity.blockSize);
+		if (command_perform_write10one(&cbw, &uctx, (uint8_t *)&inbuffer)) {
+			printf("Error: Writing mass storage failed at sector %i\n", i);
+			retval = false;
+			goto exit;
+		}
+
+		if ((i & 0xF) == 0) {
+			display_percent_spinner(i - app.lba, app.bc);
+		}
+	}
+	printf("\b\b\b\b\bdone.\n\n");
+
+exit:
+	if (app.ifile) {
+		fclose(app.ifile);
+		app.ifile = NULL;
 	}
 	return retval;
 }
@@ -630,6 +714,9 @@ int main (int argc, char *argv[]) {
 			break;
 		case APPCMD_READ:
 			retval = scsi_read10() ? 0 : 1;
+			break;
+		case APPCMD_WRITE:
+			retval = scsi_write10() ? 0 : 1;
 			break;
 		case APPCMD_HEADINFO:
 			retval = action_headinfo() ? 0 : 1;

@@ -13,7 +13,8 @@ const struct option longopt[] = {
 	{"capacity", 0, NULL, 'C'},
 	{"header-info", 0, NULL, 'I'},
 	{"sys-info", 0, NULL, 'S'},
-//	{"read", 0, NULL, 'r'},
+	{"read", 0, NULL, 'r'},
+	{"write", 0, NULL, 'w'},
 	{"read-fw", 0, NULL, 'R'},
 	{"test-ram-access", 0, NULL, 'T'},
 	{"read-ram", 0, NULL, 'M'},
@@ -28,8 +29,9 @@ const struct option longopt[] = {
 	{"lun", 1, NULL, 'L'},
 	{"lba", 1, NULL, 'l'},
 	{"block-count", 1, NULL, 'c'},
-	{"logical", 0, NULL, 'o'},
+	{"logical", 0, NULL, 'O'},
 	{"physical", 0, NULL, 'p'},
+	{"offset", 1, NULL, 'o'},
 	{"show-dir", 0, NULL, 's'},
 	{"detach", 0, NULL, 'D'},
 	{"alternate", 0, NULL, 'a'},
@@ -52,6 +54,8 @@ void usage(char *binfile) {
                                informations from it.\n");
 	printf("  -r    --read                 Read data from selected logical device starting at\n\
                                provided start sector and with sectors count.\n");
+	printf("  -w    --write                Write to selected logical device starting at\n\
+                               provided start sector and with sectors count.\n");
 	printf("  -R    --read-fw              Read data from firmware area, either logical or\n\
                                phisical, starting at provided start sector and\n\
                                with sectors count.\n");
@@ -73,9 +77,10 @@ void usage(char *binfile) {
                                Default is 0.\n");
 	printf("  -l    --lba LBA              Starting sector of data transfer. Default is 0.\n");
 	printf("  -c    --block-count COUNT    Number of sectors to transfer. Default is 1.\n");
-	printf("  -o    --logical              In case of firmware area operations choose logical one.\n\
+	printf("  -O    --logical              In case of firmware area operations choose logical one.\n\
                                DEFAULT\n");
 	printf("  -p    --physical             In case of firmware area operations choose physical one.\n");
+	printf("  -o    --offset               Source file offset in input during write operations.\n");
 	printf("  -s    --show-dir             Include contents of directory when display header info.\n");
 	printf("  -D    --detach               Detach (restart) device at the end of execution frimware\n\
                                specific commands.\n");
@@ -87,7 +92,7 @@ void parseparams(int argc, char *argv[]) {
 	int opt;
 
 	while (true) {
-		opt = getopt_long(argc, argv, "f:ed:l:L:c:iCISrRTMPE:opsDah?", longopt, NULL);
+		opt = getopt_long(argc, argv, "f:ed:l:L:c:iCISrwRTMPE:Opo:sDah?", longopt, NULL);
 		if (opt == -1) {
 			break;
 		}
@@ -135,6 +140,13 @@ void parseparams(int argc, char *argv[]) {
 					goto help;
 				}
 				app.cmd = APPCMD_READ;
+				break;
+			case 'w':
+				if (app.cmd != APPCMD_NONE) {
+					printf("Error: You have already select command.\n\n");
+					goto help;
+				}
+				app.cmd = APPCMD_WRITE;
 				break;
 			case 'R':
 				if (app.cmd != APPCMD_NONE) {
@@ -224,11 +236,18 @@ void parseparams(int argc, char *argv[]) {
 				}
 				app.bc = strtoul(optarg, NULL, 0);
 				break;
-			case 'o':
+			case 'O':
 				app.is_logical = true;
 				break;
 			case 'p':
 				app.is_logical = false;
+				break;
+			case 'o':
+				if (optarg == NULL) {
+					printf("Error: You must provide source file offset.\n\n");
+					exit(-1);
+				}
+				app.offset = strtoul(optarg, NULL, 0);
 				break;
 			case 's':
 				app.is_showdir = true;

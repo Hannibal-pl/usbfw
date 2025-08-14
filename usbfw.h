@@ -57,6 +57,7 @@ typedef enum {
 	APPCMD_HEADINFO,
 	APPCMD_SYSINFO,
 	APPCMD_READ,
+	APPCMD_WRITE,
 	APPCMD_READ_FW,
 	APPCMD_TEST_RAMACC,
 	APPCMD_READ_RAM,
@@ -82,6 +83,7 @@ typedef struct {
 	FILE				*ofile;		// output file
 	char				*ifilename;	// input filename
 	FILE				*ifile;		// input file
+	uint32_t			offset;		// input file offset
 	bool				is_dev;		// vendor and product ID are set
 	uint16_t			vid;		// vendor ID
 	uint16_t			pid;		// product ID

@@ -192,7 +192,7 @@ void command_init_read10one(CBW *cbw, uint8_t lun, uint32_t lba, uint32_t sector
 	cbw->bCBWLUN = lun;
 	cbw->dCBWDataTransferLength = sector_size;
 	cbw->CBWCB[SCSI_PACKET_CMD] = SCSI_CMD_READ10;
-	cbw->CBWCB[SCSI_PACKET_LUN] = lun;
+	cbw->CBWCB[SCSI_PACKET_LUN] = ((lun << 5) & 0xFF);
 	// big endian
 	cbw->CBWCB[SCSI_PACKET_LBA + 0] = (lba >> 24) & 0xFF;
 	cbw->CBWCB[SCSI_PACKET_LBA + 1] = (lba >> 16) & 0xFF;
@@ -214,7 +214,7 @@ void command_init_write10one(CBW *cbw, uint8_t lun, uint32_t lba, uint32_t secto
 	cbw->bCBWLUN = lun;
 	cbw->dCBWDataTransferLength = sector_size;
 	cbw->CBWCB[SCSI_PACKET_CMD] = SCSI_CMD_WRITE10;
-	cbw->CBWCB[SCSI_PACKET_LUN] = lun;
+	cbw->CBWCB[SCSI_PACKET_LUN] = ((lun << 5) & 0xFF);
 	// big endian
 	cbw->CBWCB[SCSI_PACKET_LBA + 0] = (lba >> 24) & 0xFF;
 	cbw->CBWCB[SCSI_PACKET_LBA + 1] = (lba >> 16) & 0xFF;
@@ -225,7 +225,7 @@ void command_init_write10one(CBW *cbw, uint8_t lun, uint32_t lba, uint32_t secto
 }
 
 int command_perform_write10one(CBW *cbw, USB_BULK_CONTEXT *uctx, uint8_t *buf) {
-	return command_perform_generic_read(cbw, uctx, (unsigned char *)buf);
+	return command_perform_generic_write(cbw, uctx, (unsigned char *)buf);
 }
 
 

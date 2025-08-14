@@ -252,7 +252,7 @@ uint32_t checksum32(uint32_t *data, uint32_t size, bool is_new) {
 	static uint32_t checksum;
 
 	if (size & 0x3) {
-		dbg_printf("Checksum 32 data not aligned.\n", );
+		dbg_printf("Checksum 32 data not aligned.\n");
 	}
 
 	size >>= 2;
