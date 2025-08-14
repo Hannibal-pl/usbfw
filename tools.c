@@ -67,7 +67,7 @@ char * humanize_size(uint64_t size) {
 	double dsize = (double)size;
 
 	if (size < 1024L) {
-		snprintf(size_buffer, sizeof(size_buffer) - 1, "%lu b", size);
+		snprintf(size_buffer, sizeof(size_buffer) - 1, "%lu B", size);
 		return size_buffer;
 	}
 
@@ -86,7 +86,7 @@ char * humanize_size(uint64_t size) {
 		return size_buffer;
 	}
 
-	snprintf(size_buffer, sizeof(size_buffer) - 1, "sizeof(size_buffer) - 1,%.fd TiB", dsize / (1024.0 * 1024.0 * 1024.0 * 1024.0));
+	snprintf(size_buffer, sizeof(size_buffer) - 1, "%.fd TiB", dsize / (1024.0 * 1024.0 * 1024.0 * 1024.0));
 	return size_buffer;
 }
 

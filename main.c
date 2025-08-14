@@ -363,12 +363,18 @@ bool action_headinfo(void) {
 	if (app.is_showdir) {
 		printf("\nFiles:\n\n");
 
-		printf("    Filename:       Attributes:  Version:  Offset in sectors:  Length in bytes:  Checksum:\n\n");
+		printf("    Filename:       Checksum:    Attributes:  Version:  Offset in sectors:  Length in bytes:\n\n");
 		for (uint32_t i = 0; i < 240; i++) {
 			FW_DIR_ENTRY *entry = &fw_header.diritem[i];
 			//skip empty entries
 			if (entry->filename[0] != 0) {
-				printf("    %s    0x%02hhX         0x%04hX    0x%08X          0x%08X        0x%08X\n", make_filename(entry->filename), entry->attr, entry->version, entry->offset, entry->length, entry->checksum);
+				printf("    %s    0x%08X   0x%02hhX         0x%04hX    0x%08X          0x%08X (%s)\n", 
+					make_filename(entry->filename),
+					entry->checksum,
+					entry->attr,
+					entry->version,
+					entry->offset,
+					entry->length, humanize_size(entry->length));
 			}
 		}
 	}
