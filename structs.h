@@ -58,6 +58,19 @@ typedef struct {
 	uint32_t		blockSize;		// Big endian
 } SCSI_CAPACITY;
 
+typedef struct {
+	uint32_t 		blocks;			// Big endian
+	uint32_t		reserved:6;
+	uint32_t		code:2;
+	uint32_t		blockSize:24;		// Big endian
+} SCSI_CAP_DESCRIPTOR;
+
+typedef struct {
+	uint8_t			reserved[3];
+	uint8_t			length;
+	SCSI_CAP_DESCRIPTOR	current;
+	SCSI_CAP_DESCRIPTOR	formattable[64];	// 64 is maximum so set it for sure
+} SCSI_FORMAT_CAPACITY;
 
 // Actions specfic commands
 

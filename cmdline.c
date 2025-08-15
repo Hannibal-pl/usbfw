@@ -11,6 +11,7 @@ const struct option longopt[] = {
 	{"enumerate-devices", 0, NULL, 'e'},
 	{"inqiry", 0, NULL, 'i'},
 	{"capacity", 0, NULL, 'C'},
+	{"format-capacity", 0, NULL, 'F'},
 	{"header-info", 0, NULL, 'I'},
 	{"sys-info", 0, NULL, 'S'},
 	{"read", 0, NULL, 'r'},
@@ -46,8 +47,10 @@ void usage(char *binfile) {
                                supported ones.\n");
 	printf("  -i    --inquiry              Send INQUIRY SCSI command to the device and\n\
                                print information about it sendig back.\n");
-	printf("  -C    --capacity             Send CAPACPITY SCSI command to the device and\n\
+	printf("  -C    --capacity             Send CAPACITY SCSI command to the device and\n\
                                print device LBA count and sector size.\n");
+	printf("  -F    --format-capacity      Send FORMAT CAPACITY SCSI command to the device\n\
+                               and print device LBA format capacities.\n");
 	printf("  -I    --header-info          Fetches firmware header and prints all\n\
                                informations from it.\n");
 	printf("  -S    --sys-info             Fetches firmware sysinfo and prints all\n\
@@ -93,7 +96,7 @@ void parseparams(int argc, char *argv[]) {
 	int opt;
 
 	while (true) {
-		opt = getopt_long(argc, argv, "f:ed:l:L:c:iCISrwRTMPAE:Opo:sDah?", longopt, NULL);
+		opt = getopt_long(argc, argv, "f:ed:l:L:c:iCFISrwRTMPAE:Opo:sDah?", longopt, NULL);
 		if (opt == -1) {
 			break;
 		}
@@ -120,6 +123,13 @@ void parseparams(int argc, char *argv[]) {
 					goto help;
 				}
 				app.cmd = APPCMD_CAPACITY;
+				break;
+			case 'F':
+				if (app.cmd != APPCMD_NONE) {
+					printf("Error: You have already select command.\n\n");
+					goto help;
+				}
+				app.cmd = APPCMD_FCAPACITY;
 				break;
 			case 'I':
 				if (app.cmd != APPCMD_NONE) {

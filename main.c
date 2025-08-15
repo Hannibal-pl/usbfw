@@ -116,6 +116,41 @@ bool scsi_inquiry(void) {
 	return true;
 }
 
+bool scsi_read_fcapacity(void) {
+	if (!open_and_claim(&uctx, app.vid, app.pid)) {
+		return false;
+	}
+
+	// We inted to use standard SCSI command, so there is no need to check for actions device
+
+	printf("\nSending SCSI FORMAT CAPACITY command to the device %04X:%04X LUN:%i\n\n", app.vid, app.pid, app.lun);
+
+	SCSI_FORMAT_CAPACITY fcapacity;
+	command_init_read_fcapacity(&cbw, app.lun);
+	if (command_perform_read_fcapacity(&cbw, &uctx, &fcapacity)) {
+		printf("Error: Format capacity command fail.\n");
+		return false;
+	}
+
+	printf("Recieved information:\n\n");
+	printf("    Capacity in blocks : 0x%08X\n", fcapacity.current.blocks);
+	printf("            Block size : 0x%08X\n", fcapacity.current.blockSize);
+	printf("            Total size : %s\n", humanize_size((uint64_t)fcapacity.current.blocks * (uint64_t)fcapacity.current.blockSize));
+	printf("                  Type : %u (%s)\n", fcapacity.current.code, decode_fcapacity(fcapacity.current.code));
+	printf(" Possible Format Count : %u\n", fcapacity.length >> 3);
+	printf("\n");
+
+	for (uint32_t i = 0; i < fcapacity.length >> 3; i++) {
+		printf("                Format : %u:\n", i + 1);
+		printf("    Capacity in blocks : 0x%08X\n", fcapacity.formattable[i].blocks);
+		printf("            Block size : 0x%08X\n", fcapacity.formattable[i].blockSize);
+		printf("            Total size : %s\n", humanize_size((uint64_t)fcapacity.formattable[i].blocks * (uint64_t)fcapacity.formattable[i].blockSize));
+		printf("\n");
+	}
+
+	return true;
+}
+
 bool scsi_read_capacity(void) {
 	if (!open_and_claim(&uctx, app.vid, app.pid)) {
 		return false;
@@ -843,6 +878,9 @@ int main (int argc, char *argv[]) {
 			break;
 		case APPCMD_INQUIRY:
 			retval = scsi_inquiry() ? 0 : 1;
+			break;
+		case APPCMD_FCAPACITY:
+			retval = scsi_read_fcapacity() ? 0 : 1;
 			break;
 		case APPCMD_CAPACITY:
 			retval = scsi_read_capacity() ? 0 : 1;

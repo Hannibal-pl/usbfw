@@ -170,7 +170,7 @@ bool open_and_claim(USB_BULK_CONTEXT *uctx, uint16_t vid, uint16_t pid) {
 	enum libusb_error usb_error;
 
 	if (!open_device(uctx, vid, pid)) {
-		printf("Error: Cannot opend device %04hX:%04hX.\n", vid, pid);
+		printf("Error: Cannot open device %04hX:%04hX.\n", vid, pid);
 		return false;
 	}
 

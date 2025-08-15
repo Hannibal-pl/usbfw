@@ -62,6 +62,19 @@ char * decode_pdt(uint8_t pdt) {
 	}
 }
 
+char * decode_fcapacity(uint8_t desc) {
+	switch (desc) {
+		case 1:
+			return "Unformatted Media - Maximum formattable capacity for this cartridge";
+		case 2:
+			return "Formatted Media - Current media capacity";
+		case 3:
+			return "No Cartridge in Drive - Maximum formattable capacity for any cartridge";
+		default:
+			return "Unknown";
+	}
+}
+
 char * humanize_size(uint64_t size) {
 	static char size_buffer[32];
 	double dsize = (double)size;

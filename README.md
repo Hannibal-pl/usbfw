@@ -9,7 +9,7 @@ For now, application has ability to:
 
     - display device info (INQUIRY);
 
-    - display capacity (CAPACITY);
+    - display (format)capacity ([FORMAT_]CAPACITY);
 
     - read/write sector (READ10/WRITE10).
 

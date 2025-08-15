@@ -160,6 +160,37 @@ int command_perform_inquiry(CBW *cbw, USB_BULK_CONTEXT *uctx, SCSI_INQUIRY *inqu
 }
 
 
+// SCSI READ FORMAT CAPACITY command
+
+void command_init_read_fcapacity(CBW *cbw, uint8_t lun) {
+	command_init(cbw);
+	cbw->mCBWFlags = LIBUSB_ENDPOINT_IN;
+	cbw->bCBWLUN = lun;
+	cbw->dCBWDataTransferLength = sizeof(SCSI_FORMAT_CAPACITY);
+	cbw->CBWCB[SCSI_PACKET_CMD] = SCSI_CMD_READ_FCAPACITY;
+	cbw->CBWCB[SCSI_PACKET_LUN] = ((lun << 5) & 0xFF);
+	cbw->CBWCB[7] = (sizeof(SCSI_FORMAT_CAPACITY) >> 8) & 0xFF;
+	cbw->CBWCB[8] = sizeof(SCSI_FORMAT_CAPACITY) & 0xFF;
+}
+
+int command_perform_read_fcapacity(CBW *cbw, USB_BULK_CONTEXT *uctx, SCSI_FORMAT_CAPACITY *fcapacity) {
+	int err = command_perform_generic_read(cbw, uctx, (unsigned char *)fcapacity);
+
+	if (err) {
+		return err;
+	}
+	// response is in big endian
+	fcapacity->current.blocks = be32toh(fcapacity->current.blocks);
+	fcapacity->current.blockSize = be32toh(fcapacity->current.blockSize << 8); // blockSize has only 3 bytes - workaround this
+	for (uint32_t i = 0; i < (fcapacity->length >> 3); i++) {
+		fcapacity->formattable[i].blocks = be32toh(fcapacity->formattable[i].blocks);
+		fcapacity->formattable[i].blockSize = be32toh(fcapacity->formattable[i].blockSize << 8);
+	}
+
+	return 0;
+}
+
+
 // SCSI READ CAPACITY command
 
 void command_init_read_capacity(CBW *cbw, uint8_t lun) {

@@ -12,6 +12,7 @@
 #define		SCSI_CMD_INQUIRY	0x12
 #define		SCSI_CMD_ACTF_DETACH	0x16
 #define		SCSI_CMD_ACTF_ENTRY	0x20
+#define		SCSI_CMD_READ_FCAPACITY	0x23
 #define		SCSI_CMD_READ_CAPACITY	0x25
 #define		SCSI_CMD_READ10		0x28
 #define		SCSI_CMD_WRITE10	0x2A
@@ -57,6 +58,7 @@ typedef enum {
 	APPCMD_NONE = 0,
 	APPCMD_ENUMERATE,
 	APPCMD_INQUIRY,
+	APPCMD_FCAPACITY,
 	APPCMD_CAPACITY,
 	APPCMD_HEADINFO,
 	APPCMD_SYSINFO,
@@ -117,6 +119,8 @@ void command_init(CBW *cbw);
 
 void command_init_inquiry(CBW *cbw, uint8_t lun);
 int command_perform_inquiry(CBW *cbw, USB_BULK_CONTEXT *uctx, SCSI_INQUIRY *inquiry);
+void command_init_read_fcapacity(CBW *cbw, uint8_t lun);
+int command_perform_read_fcapacity(CBW *cbw, USB_BULK_CONTEXT *uctx, SCSI_FORMAT_CAPACITY *fcapacity);
 void command_init_read_capacity(CBW *cbw, uint8_t lun);
 int command_perform_read_capacity(CBW *cbw, USB_BULK_CONTEXT *uctx, SCSI_CAPACITY *capacity);
 void command_init_read10one(CBW *cbw, uint8_t lun, uint32_t lba, uint32_t sector_size);
@@ -160,6 +164,7 @@ extern APP_CONTEXT app;
 //tool.c
 bool parse_devid(char *devstring);
 char * decode_pdt(uint8_t);
+char * decode_fcapacity(uint8_t desc);
 char * humanize_size(uint64_t size);
 char * covert_usb_string_descriptor(uint8_t *src, uint32_t length);
 char * convert_mtp_serial(uint8_t serial[16]);
