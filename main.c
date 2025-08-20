@@ -383,7 +383,7 @@ bool action_headinfo(void) {
 	printf("       Header Checksum : 0x%04hX - %s\n", fw_header.headerChecksum, (checksum16((uint16_t *)&fw_header, 510, true) == fw_header.headerChecksum) ? "OK" : "Error");
 	printf("\nCommon Values:\n\n");
 	printf("                 Magic : 0x%04hX - %s\n", fw_header.defaultInf.magic, fw_header.defaultInf.magic == 0xDEAD ? "OK" : "Error");
-	printf(" System Time (in 0.5s) : 0x%08X\n", fw_header.defaultInf.systemtime);
+	printf(" System Time (in 0.5s) : 0x%08X (%s)\n", fw_header.defaultInf.systemtime,  make_date(fw_header.defaultInf.systemtime));
 	printf("              RTC Rate : 0x%04hX\n", fw_header.defaultInf.RTCRate);
 	printf("      Display Contrast : %hu\n", fw_header.defaultInf.displayContrast);
 	printf("            Light Time : %hu\n", fw_header.defaultInf.lightTime);

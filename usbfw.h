@@ -174,6 +174,7 @@ char * decode_record(uint8_t record);
 char * decode_lightmode(uint8_t lightmode);
 char * decode_mtpformat(uint8_t mtpformat);
 char * make_filename(char filename[11]);
+char * make_date(uint32_t actions_time);
 void display_spinner(void);
 void display_percent_spinner(uint32_t current, uint32_t max);
 bool test_ram_access(USB_BULK_CONTEXT *uctx);

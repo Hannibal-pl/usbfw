@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <iconv.h>
+#include <time.h>
 
 #include "usbfw.h"
 
@@ -229,6 +230,22 @@ char * make_filename(char filename[11]) {
 	outname[12] = 0;
 
 	return outname;
+}
+
+char * make_date(uint32_t actions_time) {
+	static char str[200];
+	time_t time;
+	struct tm *gmt;
+
+	time = (time_t)(actions_time >> 1); // action_time has 0.5 s resolution
+	gmt = gmtime(&time);
+	if (!gmt) {
+		strcpy(str, "Wrong date");
+	} else if (!strftime(str, sizeof(str), "%Y-%m-%d %H:%M:%S GMT", gmt)) {
+		strcpy(str, "Wrong date");
+	}
+
+	return str;
 }
 
 void display_spinner(void) {
