@@ -108,6 +108,19 @@ typedef struct {
 	uint8_t			onlineMode;
 	uint8_t			batteryType;
 	uint8_t			fmBuildIn;
+	uint8_t			recordType;		// voice record = 0, music record = 1
+	uint8_t			backlightColor;
+	uint8_t			onlineDev;
+	uint8_t			lightMode;		// light = 0, dark = 1
+	uint8_t			cardSel;		// card selection: not supported = 0, supported 1
+	uint8_t			mtpFormatType;		// FAT16 = 0, FAT32 = 1
+	uint8_t			fmFlag;
+	uint8_t			earProtectionFlag;
+	uint8_t			earProtectionThreshold;
+	uint8_t			attenuationFlag;
+	uint16_t		autoSwitchoffTime;
+	uint8_t			keyTone;
+	uint8_t			reserved[2];
 } FW_COMMON_VAL;
 
 typedef struct {
@@ -130,7 +143,6 @@ typedef struct {
 	uint8_t			bDescriptorType;	// 3 (string)
 	uint8_t			bString[46];
 	FW_COMMON_VAL		defaultInf;
-	uint8_t			reserved4[15];
 	uint8_t			asciiLen1;
 	uint8_t			mtpManufacturerInfo[32];
 	uint8_t			asciilen2;
@@ -141,7 +153,7 @@ typedef struct {
 	uint8_t			mtpProductSerialNumber[16];
 	uint16_t		mtpVendorId;		// in original header those two are 2 element arrays
 	uint16_t		mtpProductId;		// but this make this structure too large. And in MTP
-	uint8_t			reserved5[38];		// they are 16 bit wide
+	uint8_t			reserved4[38];		// they are 16 bit wide
 	uint16_t		headerChecksum;		// first 510 bytes
 	FW_DIR_ENTRY		diritem[240];
 } FW_HEADER;

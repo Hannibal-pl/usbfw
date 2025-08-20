@@ -172,6 +172,39 @@ char * decode_battery(uint8_t battery) {
 	}
 }
 
+char * decode_record(uint8_t record) {
+	switch (record) {
+		case 0:
+			return "Voice Record";
+		case 1:
+			return "Music Record";
+		default:
+			return "Unknown Record";
+	}
+}
+
+char * decode_lightmode(uint8_t lightmode) {
+	switch (lightmode) {
+		case 0:
+			return "Light";
+		case 1:
+			return "Dark";
+		default:
+			return "Unknown";
+	}
+}
+
+char * decode_mtpformat(uint8_t mtpformat) {
+	switch (mtpformat) {
+		case 0:
+			return "FAT 16";
+		case 1:
+			return "FAT 32";
+		default:
+			return "Unknown";
+	}
+}
+
 char * make_filename(char filename[11]) {
 	static char outname[13];
 	uint32_t i = 0;

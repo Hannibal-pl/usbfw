@@ -385,15 +385,27 @@ bool action_headinfo(void) {
 	printf("                 Magic : 0x%04hX - %s\n", fw_header.defaultInf.magic, fw_header.defaultInf.magic == 0xDEAD ? "OK" : "Error");
 	printf(" System Time (in 0.5s) : 0x%08X\n", fw_header.defaultInf.systemtime);
 	printf("              RTC Rate : 0x%04hX\n", fw_header.defaultInf.RTCRate);
-	printf("      Display Contrast : 0x%hu\n", fw_header.defaultInf.displayContrast);
-	printf("            Light Time : 0x%hu\n", fw_header.defaultInf.lightTime);
+	printf("      Display Contrast : %hu\n", fw_header.defaultInf.displayContrast);
+	printf("            Light Time : %hu\n", fw_header.defaultInf.lightTime);
 	printf("          Standby Time : 0x%hu\n", fw_header.defaultInf.standbyTime);
 	printf("            Sleep Time : 0x%hu\n", fw_header.defaultInf.sleepTime);
-	printf("           Language ID : %i - %s\n", fw_header.defaultInf.langid, decode_langid(fw_header.defaultInf.langid));
-	printf("           Replay Mode : 0x%hu\n", fw_header.defaultInf.replayMode);
-	printf("           Online Mode : 0x%hu\n", fw_header.defaultInf.onlineMode);
-	printf("          Battery Type : %i - %s\n", fw_header.defaultInf.batteryType, decode_battery(fw_header.defaultInf.batteryType));
-	printf("           FM Build in : %i - %s\n", fw_header.defaultInf.fmBuildIn, fw_header.defaultInf.fmBuildIn ? "YES" : "NO");
+	printf("           Language ID : %hhu - %s\n", fw_header.defaultInf.langid, decode_langid(fw_header.defaultInf.langid));
+	printf("           Replay Mode : %hu\n", fw_header.defaultInf.replayMode);
+	printf("           Online Mode : %hu\n", fw_header.defaultInf.onlineMode);
+	printf("          Battery Type : %hhu - %s\n", fw_header.defaultInf.batteryType, decode_battery(fw_header.defaultInf.batteryType));
+	printf("           FM Build in : %hhu - %s\n", fw_header.defaultInf.fmBuildIn, fw_header.defaultInf.fmBuildIn ? "YES" : "NO");
+	printf("           Record Type : %hhu - %s\n", fw_header.defaultInf.recordType, decode_record(fw_header.defaultInf.recordType));
+	printf("       Backlight Color : %hhu\n", fw_header.defaultInf.backlightColor);
+	printf("         Online Device : %hhu\n", fw_header.defaultInf.onlineDev);
+	printf("            Light Mode : %hhu - %s\n", fw_header.defaultInf.lightMode, decode_lightmode(fw_header.defaultInf.lightMode));
+	printf("        Card Selection : %hhu - %s\n", fw_header.defaultInf.cardSel, fw_header.defaultInf.cardSel ? "Supported" : "Not Supported");
+	printf("       MTP Format Type : %hhu - %s\n", fw_header.defaultInf.mtpFormatType, decode_mtpformat(fw_header.defaultInf.mtpFormatType));
+	printf("                    FM : %hhu - %s\n", fw_header.defaultInf.fmFlag, fw_header.defaultInf.fmFlag ? "Supported" : "Not Supported");
+	printf("        Ear Protection : %hhu - %s\n", fw_header.defaultInf.earProtectionFlag, fw_header.defaultInf.earProtectionFlag ? "Supported" : "Not Supported");
+	printf(" Ear Protection Thres. : %hhu\n", fw_header.defaultInf.earProtectionThreshold);
+	printf("           Attenuation : %hhu - %s\n", fw_header.defaultInf.attenuationFlag, fw_header.defaultInf.attenuationFlag ? "Supported" : "Not Supported");
+	printf("  Auto Switch Off Time : %hu\n", fw_header.defaultInf.autoSwitchoffTime);
+	printf("              Key Tone : %hhu - %s\n", fw_header.defaultInf.keyTone, fw_header.defaultInf.keyTone ? "YES" : "NO");
 
 	if (app.is_showdir) {
 		printf("\nFiles:\n\n");
